@@ -24,7 +24,42 @@
 extern "C" {
 #endif
 
+// Hse_Ip.h included
+#if defined(HSE_IP_H)
 
+#define MU_ADMIN_CHANNEL_U8 ((uint8)0U)
+typedef union
+{
+    hseStatus_t status;
+    struct
+    {
+        bool reserved : 1;              // bit 0
+        bool SHESecureBoot : 1;         // bit 1
+        bool SHESecureBootInit : 1;     // bit 2
+        bool SHESecureBootFinished : 1; // bit 3
+        bool SHESecureBootOK : 1;       // bit 4
+        bool RNGInitOK : 1;             // bit 5
+        bool HostDebuggerActive : 1;    // bit 6
+        bool HSEDebuggerActive : 1;     // bit 7
+        bool InitOK : 1;                // bit 8
+        bool InstallOK : 1;             // bit 9
+        bool BootOK : 1;                // bit 10
+        bool CustSuperUser : 1;         // bit 11
+        bool OEMSuperUser : 1;          // bit 12
+#ifdef HSE_SPT_FLASHLESS_DEV
+        bool PublishSysImage : 1; // bit 13
+        bool PrimarySysImage : 1; // bit 14
+        bool BackupSysImage : 1;  // bit 15
+#else
+        bool FWUpdateInProgress : 1;           // bit 13
+        bool PublishNVMKeystoreRAMToFlash : 1; // bit 14
+#endif
+    } B;
+} Hse_Status;
+
+Hse_Status Hse_GetStatus(uint8_t u8MuInstance);
+
+#endif
 
 #if defined(__cplusplus)
 }

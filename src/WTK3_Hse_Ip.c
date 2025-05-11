@@ -19,8 +19,17 @@
 //---------------------------------------------------------------------------------------------------------------------
 #include <stdint.h>
 #include <stdbool.h>
+
+#define HSE_IP_H
+typedef uint16_t hseStatus_t;
+
 #include "libwtk3.h"
 
-int Add(int a, int b) {
-	return a + b;
+extern hseStatus_t Hse_Ip_GetHseStatus(uint8_t u8MuInstance);
+
+
+Hse_Status Hse_GetStatus(uint8_t u8MuInstance) {
+	Hse_Status retval;
+	retval.status = Hse_Ip_GetHseStatus(u8MuInstance);
+	return retval;
 }
