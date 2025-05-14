@@ -1,0 +1,114 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 4.0.0
+* Build Version : S32K3_RTD_4_0_0_HF02_D2407_ASR_REL_4_7_REV_0000_20240725
+*
+* Copyright 2020 - 2024 NXP
+*
+* NXP Confidential. This software is owned or controlled by NXP and may only be
+* used strictly in accordance with the applicable license terms. By expressly
+* accepting such terms or by downloading, installing, activating and/or otherwise
+* using the software, you are agreeing that you have read, and that you agree to
+* comply with and are bound by, such license terms. If you do not agree to be
+* bound by the applicable license terms, then you may not retain, install,
+* activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+#include "Mcal.h"
+#include "OsIf.h"
+#include "Clock_Ip.h"
+#include "Hse_Ip.h"
+#include "IntCtrl_Ip.h"
+#include "libwtk3.h"
+#include "Devassert.h"
+
+ISR(Mu_Ip_Mu0_OredRx_Isr);
+
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+    /* Write your code here */
+    OsIf_SuspendAllInterrupts();
+
+    OsIf_Init(NULL_PTR);
+
+    Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
+    IntCtrl_Ip_Init(&IntCtrlConfig_0);
+
+    IntCtrl_Ip_InstallHandler(HSE_MU0_RX_IRQn, Mu_Ip_Mu0_OredRx_Isr, NULL_PTR);
+    IntCtrl_Ip_SetPriority(HSE_MU0_RX_IRQn, 0);
+    IntCtrl_Ip_EnableIrq(HSE_MU0_RX_IRQn);
+
+    Hse_Status status;
+    do
+    {
+        status.status = Hse_Ip_GetHseStatus(0);
+        DevAssert(status.B.InitOK);
+        DevAssert(status.B.RNGInitOK);
+    } while (!(status.B.InitOK && status.B.RNGInitOK));
+
+    static Hse_Ip_MuStateType HseIp_MuState[HSE_IP_NUM_OF_MU_INSTANCES];
+    for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; InstID++)
+    {
+        Hse_Ip_Init(InstID, &HseIp_MuState[InstID]);
+    }
+
+    OsIf_ResumeAllInterrupts();
+
+    Hse_Task_Init();
+
+    Hse_Task_ID taskId = Hse_Task_GetFreeSlot();
+
+    hseAttrMUConfig_t *pMuConfig = Hse_GetMuConfig(taskId);
+
+    pMuConfig->muInstances[0].muConfig = HSE_MU_ACTIVATED;
+    pMuConfig->muInstances[1].muConfig = HSE_MU_ACTIVATED;
+
+    volatile hseSrvResponse_t response = Hse_Task_MasterRequest(taskId, 0, -1U);
+
+    Hse_Task_Release(taskId);
+
+    taskId = Hse_Task_GetFreeSlot();
+
+    hseAttrCapabilities_t *pCapabilities = Hse_GetCapabilities(taskId);
+
+    response = Hse_Task_MasterRequest(taskId, 0, -1U);
+
+    volatile Hse_Capabilities cap;
+    cap.Capabilities = *pCapabilities;
+
+    Hse_Task_Release(taskId);
+
+    taskId = Hse_Task_GetFreeSlot();
+
+    volatile uint8_t *pRandomBuffer = Hse_GetRandomBuffer(taskId, HSE_RNG_CLASS_DRG4, 16);
+
+    response = Hse_Task_SyncRequest(taskId, 0, -1U);
+
+    Hse_Task_Release(taskId);
+
+    for (;;)
+        ;
+}
+
+/** @} */

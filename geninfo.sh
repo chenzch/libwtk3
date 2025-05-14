@@ -84,10 +84,7 @@ else
         Init_Parameter="&$Init_Parameter[0]"
     fi
     echo "    {
-#if defined(DEBUG_ASSERT)
-        Clock_Ip_StatusType status =
-#endif /* #if defined(DEBUG_ASSERT) */
-        Clock_Ip_Init($Init_Parameter);
+        Clock_Ip_StatusType status = Clock_Ip_Init($Init_Parameter);
 #if defined(DEBUG_ASSERT)
         DevAssert((Clock_Ip_StatusType)CLOCK_IP_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */
@@ -101,10 +98,7 @@ else
         for numval in $(grep '^#define NUM_OF_CONFIGURED_PINS_' board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
             Array_Name=$(grep "\[$numval\]" board/Siul2_Port_Ip_Cfg.h | tr '[' ' ' | awk ' { print $4 }')
             echo "    {
-#if defined(DEBUG_ASSERT)
-        Siul2_Port_Ip_PortStatusType status =
-#endif /* #if defined(DEBUG_ASSERT) */
-        Siul2_Port_Ip_Init($numval, &$Array_Name[0]);
+        Siul2_Port_Ip_PortStatusType status = Siul2_Port_Ip_Init($numval, &$Array_Name[0]);
 #if defined(DEBUG_ASSERT)
         DevAssert((Siul2_Port_Ip_PortStatusType)SIUL2_PORT_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */
@@ -128,21 +122,21 @@ else
         echo "    {
         Hse_Status status;
         do {
-            status = Hse_GetStatus(MU_ADMIN_CHANNEL_U8);
+            status.status = Hse_Ip_GetHseStatus(0);
 #if defined(DEBUG_ASSERT)
             DevAssert(status.B.InitOK);
             DevAssert(status.B.RNGInitOK);
 #endif /* #if defined(DEBUG_ASSERT) */
         } while(!(status.B.InitOK && status.B.RNGInitOK));
 
-        static Hse_Ip_MuStateType HseIp_MuState;
+        static Hse_Ip_MuStateType HseIp_MuState[HSE_IP_NUM_OF_MU_INSTANCES];
+        for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; InstID++) {
+            Hse_Ip_StatusType status = Hse_Ip_Init(InstID, &HseIp_MuState[InstID]);
 #if defined(DEBUG_ASSERT)
-        Hse_Ip_StatusType status =
+            DevAssert((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */
-        Hse_Ip_Init(MU_ADMIN_CHANNEL_U8, &HseIp_MuState);
-#if defined(DEBUG_ASSERT)
-        DevAssert((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */
+        }
+        Hse_Task_Init();
     }"
     fi
 fi
@@ -158,10 +152,7 @@ else
             Init_Parameter="&$Init_Parameter"
         fi
         echo "    {
-#if defined(DEBUG_ASSERT)
-        IntCtrl_Ip_StatusType status =
-#endif /* #if defined(DEBUG_ASSERT) */
-        IntCtrl_Ip_Init($Init_Parameter);
+        IntCtrl_Ip_StatusType status = IntCtrl_Ip_Init($Init_Parameter);
 #if defined(DEBUG_ASSERT)
         DevAssert((IntCtrl_Ip_StatusType)INTCTRL_IP_STATUS_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */"

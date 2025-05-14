@@ -24,15 +24,15 @@
 extern "C" {
 #endif
 
+#define MAX_HSE_TASK_NUM (4)
+#define MAX_HSE_MAX_BUFFER_SIZE (64)
+
 // Hse_Ip.h included
 #if defined(HSE_IP_H)
 
-#define MU_ADMIN_CHANNEL_U8 ((uint8)0U)
-typedef union
-{
+typedef union {
     hseStatus_t status;
-    struct
-    {
+    struct {
         bool reserved : 1;              // bit 0
         bool SHESecureBoot : 1;         // bit 1
         bool SHESecureBootInit : 1;     // bit 2
@@ -57,7 +57,64 @@ typedef union
     } B;
 } Hse_Status;
 
-Hse_Status Hse_GetStatus(uint8_t u8MuInstance);
+typedef union {
+    hseAttrCapabilities_t Capabilities;
+    struct {
+        bool RANDOM : 1;            // bit 0
+        bool SHE : 1;               // bit 1
+        bool AES : 1;               // bit 2
+        bool XTS_AES : 1;           // bit 3
+        bool AEAD_GCM : 1;          // bit 4
+        bool AEAD_CCM : 1;          // bit 5
+        bool RESERVED1 : 1;         // bit 6
+        bool SHA1 : 1;              // bit 7
+        bool SHA2 : 1;              // bit 8
+        bool SHA3 : 1;              // bit 9
+        bool MP : 1;                // bit 10
+        bool CMAC : 1;              // bit 11
+        bool HMAC : 1;              // bit 12
+        bool GMAC : 1;              // bit 13
+        bool XCBC_MAC : 1;          // bit 14
+        bool RSAES_NO_PADDING : 1;  // bit 15
+        bool RSAES_OAEP : 1;        // bit 16
+        bool RSAES_PKCS1_V15 : 1;   // bit 17
+        bool RSASSA_PSS : 1;        // bit 18
+        bool RSASSA_PKCS1_V15 : 1;  // bit 19
+        bool ECDH : 1;              // bit 20
+        bool ECDSA : 1;             // bit 21
+        bool EDDSA : 1;             // bit 22
+        bool MONTDH : 1;            // bit 23
+        bool CLASSIC_DH : 1;        // bit 24
+        bool KDF_SP800_56C : 1;     // bit 25
+        bool KDF_SP800_108 : 1;     // bit 26
+        bool KDF_ANS_X963 : 1;      // bit 27
+        bool KDF_ISO18033_KDF1 : 1; // bit 28
+        bool KDF_ISO18033_KDF2 : 1; // bit 29
+        bool PBKDF2 : 1;            // bit 30
+        bool KDF_TLS12_PRF : 1;     // bit 31
+        bool HKDF : 1;              // bit 32
+        bool KDF_IKEV2 : 1;         // bit 33
+
+    } B;
+} Hse_Capabilities;
+
+typedef uint8_t Hse_Task_ID;
+
+void Hse_Task_Init(void);
+
+Hse_Task_ID Hse_Task_GetFreeSlot(void);
+
+void Hse_Task_Release(Hse_Task_ID Id);
+
+hseSrvResponse_t Hse_Task_MasterRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint32_t u32Timeout);
+
+hseSrvResponse_t Hse_Task_SyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint32_t u32Timeout);
+
+hseAttrMUConfig_t *Hse_GetMuConfig(Hse_Task_ID Id);
+
+hseAttrCapabilities_t *Hse_GetCapabilities(Hse_Task_ID Id);
+
+uint8_t *Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint32_t Size);
 
 #endif
 
