@@ -37,6 +37,14 @@
 #include "libwtk3.h"
 #include "Devassert.h"
 
+#define CRYPTO_43_HSE_START_SEC_VAR_CLEARED_8_NO_CACHEABLE
+#include "Crypto_43_HSE_MemMap.h"
+
+static uint8_t RandomBuffer[16];
+
+#define CRYPTO_43_HSE_STOP_SEC_VAR_CLEARED_8_NO_CACHEABLE
+#include "Crypto_43_HSE_MemMap.h"
+
 ISR(Mu_Ip_Mu0_OredRx_Isr);
 
 /*!
@@ -52,7 +60,6 @@ int main(void)
 
     OsIf_Init(NULL_PTR);
 
-    Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
     IntCtrl_Ip_Init(&IntCtrlConfig_0);
 
     IntCtrl_Ip_InstallHandler(HSE_MU0_RX_IRQn, Mu_Ip_Mu0_OredRx_Isr, NULL_PTR);
@@ -66,6 +73,8 @@ int main(void)
         DevAssert(status.B.InitOK);
         DevAssert(status.B.RNGInitOK);
     } while (!(status.B.InitOK && status.B.RNGInitOK));
+
+    Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
 
     static Hse_Ip_MuStateType HseIp_MuState[HSE_IP_NUM_OF_MU_INSTANCES];
     for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; InstID++)
@@ -101,9 +110,16 @@ int main(void)
 
     taskId = Hse_Task_GetFreeSlot();
 
-    volatile uint8_t *pRandomBuffer = Hse_GetRandomBuffer(taskId, HSE_RNG_CLASS_DRG4, 16);
+    hseAttrFwVersion_t *pFwVersion = Hse_GetFwVersion(taskId);
 
-    response = Hse_Task_SyncRequest(taskId, 0, -1U);
+    response = Hse_Task_MasterRequest(taskId, 0, -1U);
+
+    Hse_Task_Release(taskId);
+
+    taskId = Hse_Task_GetFreeSlot();
+    if (Hse_GetRandomBuffer(taskId, HSE_RNG_CLASS_DRG4, &RandomBuffer[0], 16)) {
+        response = Hse_Task_SyncRequest(taskId, 0, -1U);
+    }
 
     Hse_Task_Release(taskId);
 

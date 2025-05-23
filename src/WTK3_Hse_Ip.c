@@ -35,9 +35,9 @@ static struct {
 #include "Crypto_43_HSE_MemMap.h"
 
 static union {
-    uint8_t               Hse_Buffer[MAX_HSE_MAX_BUFFER_SIZE];
     hseAttrCapabilities_t Hse_AttrCapabilities;
     hseAttrMUConfig_t     Hse_MuConfig;
+    hseAttrFwVersion_t    Hse_FwVersion;
 } gHseData[MAX_HSE_TASK_NUM];
 
 #define CRYPTO_43_HSE_STOP_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
@@ -130,16 +130,29 @@ hseAttrCapabilities_t *Hse_GetCapabilities(Hse_Task_ID Id) {
     return NULL;
 }
 
-uint8_t *Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint32_t Size) {
-    if ((Id < MAX_HSE_TASK_NUM) || (Level > HSE_RNG_CLASS_PTG3) ||
-        (Size > MAX_HSE_MAX_BUFFER_SIZE)) {
+hseAttrFwVersion_t *Hse_GetFwVersion(Hse_Task_ID Id) {
+    if (Id < MAX_HSE_TASK_NUM) {
         hseSrvDescriptor_t *pHseSrvDescriptor = &gHseSrvDescriptor[Id];
-        HOST_ADDR           RetVal            = HSE_PTR_TO_HOST_ADDR(&gHseData[Id].Hse_Buffer[0]);
+        HOST_ADDR           RetVal = HSE_PTR_TO_HOST_ADDR(&gHseData[Id].Hse_FwVersion);
+        pHseSrvDescriptor->srvId   = HSE_SRV_ID_GET_ATTR;
+        pHseSrvDescriptor->hseSrv.getAttrReq.attrId  = HSE_FW_VERSION_ATTR_ID;
+        pHseSrvDescriptor->hseSrv.getAttrReq.attrLen = sizeof(hseAttrFwVersion_t);
+        pHseSrvDescriptor->hseSrv.getAttrReq.pAttr   = RetVal;
+        return (hseAttrFwVersion_t *)RetVal;
+    }
+    return NULL;
+}
+
+bool Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32_t Size) {
+    if ((Id < MAX_HSE_TASK_NUM) || (Level > HSE_RNG_CLASS_PTG3)) {
+        hseSrvDescriptor_t *pHseSrvDescriptor = &gHseSrvDescriptor[Id];
+        HOST_ADDR           RetVal            = HSE_PTR_TO_HOST_ADDR(pBuffer);
         pHseSrvDescriptor->srvId              = HSE_SRV_ID_GET_RANDOM_NUM;
         pHseSrvDescriptor->hseSrv.getRandomNumReq.rngClass        = Level;
         pHseSrvDescriptor->hseSrv.getRandomNumReq.randomNumLength = Size;
         pHseSrvDescriptor->hseSrv.getRandomNumReq.pRandomNum      = RetVal;
-        return (uint8_t *)RetVal;
+        return true;
+    } else {
+        return false;
     }
-    return NULL;
 }

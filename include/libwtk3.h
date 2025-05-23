@@ -25,7 +25,6 @@ extern "C" {
 #endif
 
 #define MAX_HSE_TASK_NUM (4)
-#define MAX_HSE_MAX_BUFFER_SIZE (64)
 
 // Hse_Ip.h included
 #if defined(HSE_IP_H)
@@ -114,9 +113,29 @@ hseAttrMUConfig_t *Hse_GetMuConfig(Hse_Task_ID Id);
 
 hseAttrCapabilities_t *Hse_GetCapabilities(Hse_Task_ID Id);
 
-uint8_t *Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint32_t Size);
+hseAttrFwVersion_t *Hse_GetFwVersion(Hse_Task_ID Id);
+
+bool Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32_t Size);
 
 #endif
+
+// #if defined(CRYPTO_43_HSE_H)
+
+// #define Crypto_Format Crypto_43_HSE_Exts_FormatKeyCatalogs
+
+// typedef uint8_t Hse_Task_ID;
+
+// void Hse_Task_Init(void);
+
+// Hse_Task_ID Hse_Task_GetFreeSlot(void);
+
+// void Hse_Task_Release(Hse_Task_ID Id);
+
+// // Std_ReturnType Hse_Task_SyncRequest(uint32_t ObjectId, Hse_Task_ID Id);
+
+// uint8_t *Hse_GetSHA256Buffer(Hse_Task_ID Id, uint8_t *pInputData, uint32_t Size);
+
+// #endif
 
 #if defined(__cplusplus)
 }
