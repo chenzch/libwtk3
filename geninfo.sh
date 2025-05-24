@@ -43,6 +43,22 @@ else
     fi
 fi
 
+if FindModule "POWER"; then
+    echo "#include \"Power_Ip.h\""
+fi
+
+if FindModule "Dma_Ip"; then
+    echo "#include \"Dma_Ip.h\""
+fi
+
+if FindModule "Rm"; then
+    echo "#include \"CDD_Rm.h\""
+fi
+
+if FindModule "Lpuart_Uart"; then
+    echo "#include \"Lpuart_Uart_Ip.h\""
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "#include \"Crypto_43_HSE.h\""
     echo "#include \"Crypto_43_HSE_Util.h\""
@@ -79,17 +95,17 @@ fi
 if FindModule "Mcu"; then
     McuConfig="NULL_PTR"
     if FileExist "generate/include/Mcu_*fg.h"; then
-        McuConfig=$(grep '^extern const Mcu_ConfigType .*;' generate/include/Mcu_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        McuConfig=$(grep -h '^extern const Mcu_ConfigType .*;' generate/include/Mcu_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         McuConfig="&$McuConfig"
     fi
     ClockConfig="0"
     if FileExist "generate/include/Mcu_*fg.h"; then
-        ClockConfig=$(grep '#define .* ((Mcu_ClockType)0U)' generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
+        ClockConfig=$(grep -h '#define .* ((Mcu_ClockType)0U)' generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
         ClockConfig="$ClockConfig"
     fi
     ModeConfig="0"
     if FileExist "generate/include/Mcu_*fg.h"; then
-        ModeConfig=$(grep '#define .* ((Mcu_ModeType)0U)' generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
+        ModeConfig=$(grep -h '#define .* ((Mcu_ModeType)0U)' generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
         ModeConfig="$ModeConfig"
     fi
     echo "    /* Initialize the Mcu driver */
@@ -110,7 +126,7 @@ if FindModule "Mcu"; then
 else
     Init_Parameter="NULL_PTR"
     if FileExist "generate/include/Clock_Ip_*fg.h"; then
-        Init_Parameter=$(grep '^extern const Clock_Ip_ClockConfigType .*\[\];' generate/include/Clock_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
+        Init_Parameter=$(grep -h '^extern const Clock_Ip_ClockConfigType .*\[\];' generate/include/Clock_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
         Init_Parameter="&$Init_Parameter[0]"
     fi
     echo "    {
@@ -124,7 +140,7 @@ fi
 if FindModule "Port"; then
     PortConfig="NULL_PTR"
     #if FileExist "generate/include/Port_*fg.h"; then
-    #    PortConfig=$(grep '^extern const Port_ConfigType .*;' generate/include/Port_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    #    PortConfig=$(grep -h '^extern const Port_ConfigType .*;' generate/include/Port_*fg.h | tr ';' ' ' | awk '{ print $4 }');
     #    PortConfig="&$PortConfig"
     #fi
     echo "#if (STD_ON == PORT_PRECOMPILE_SUPPORT)
@@ -144,7 +160,7 @@ if FindModule "Port"; then
     fi
 else
     if FindModule "Siul2_Port"; then
-        for numval in $(grep '^#define NUM_OF_CONFIGURED_PINS_' board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
+        for numval in $(grep -h '^#define NUM_OF_CONFIGURED_PINS_' board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
             Array_Name=$(grep "\[$numval\]" board/Siul2_Port_Ip_Cfg.h | tr '[' ' ' | awk ' { print $4 }')
             echo "    {
         Siul2_Port_Ip_PortStatusType status = Siul2_Port_Ip_Init($numval, &$Array_Name[0]);
@@ -156,14 +172,48 @@ else
     fi
 fi
 
-if FindModule "Dio"; then
-    for port in $(grep '^#define DioConf_DioChannel_DioChannel_' generate/include/Dio_*fg.h | awk '{ print $2 }'); do
-        echo "    Dio_WriteChannel($port, STD_HIGH);"
-    done
-else
-    if FindModule "Siul2_Dio"; then
-        echo
+if FindModule "POWER"; then
+    Power_Parameter="NULL_PTR"
+    if FileExist "generate/include/Power_Ip_*fg.h"; then
+        Power_Parameter=$(grep -h '^extern const Power_Ip_HwIPsConfigType .*;' generate/include/Power_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        Power_Parameter="&$Power_Parameter"
     fi
+    Mode_Parameter="NULL_PTR"
+    if FileExist "generate/include/Power_Ip_*fg.h"; then
+        Mode_Parameter=$(grep -h '^extern const Power_Ip_ModeConfigType .*\[\];' generate/include/Power_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
+        Mode_Parameter="&$Mode_Parameter[0]"
+    fi
+    echo "    Power_Ip_Init($Power_Parameter);"
+    echo "    Power_Ip_SetMode($Mode_Parameter);"
+fi
+
+if FindModule "Dma_Ip"; then
+    Dma_Parameter="NULL_PTR"
+    if FileExist "generate/include/Dma_Ip_*fg.h"; then
+        Dma_Parameter=$(grep -h '^extern const Dma_Ip_InitType .*;' generate/include/Dma_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        Dma_Parameter="&$Dma_Parameter"
+    fi
+    echo "    {
+        Dma_Ip_ReturnType status = Dma_Ip_Init($Dma_Parameter);
+#if defined(DEBUG_ASSERT)
+        DevAssert((Dma_Ip_ReturnType)DMA_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+    }"
+fi
+
+if FindModule "Rm"; then
+    Rm_Parameter="NULL_PTR"
+    if FileExist "generate/include/CDD_Rm_*fg.h"; then
+        Rm_Parameter=$(grep -h 'extern const Rm_ConfigType .*;' generate/include/CDD_Rm_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        Rm_Parameter="&$Rm_Parameter"
+    fi
+    echo "    Rm_Init($Rm_Parameter);"
+fi
+
+if FindModule "Lpuart_Uart"; then
+    for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+        echo "    Lpuart_Uart_Ip_Init(${instance/Lpuart_Uart_Ip_xHwConfigPB_/}, &$instance);"
+    done
 fi
 
 if FindModule "Crypto_43_HSE"; then
@@ -206,7 +256,7 @@ else
     if FindModule "IntCtrl_Ip"; then
         Init_Parameter="NULL_PTR"
         if FileExist "generate/include/IntCtrl_Ip_*fg.h"; then
-            Init_Parameter=$(grep '^extern const IntCtrl_Ip_CtrlConfigType .*;' generate/include/IntCtrl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+            Init_Parameter=$(grep -h '^extern const IntCtrl_Ip_CtrlConfigType .*;' generate/include/IntCtrl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
             Init_Parameter="&$Init_Parameter"
         fi
         echo "    {
@@ -229,4 +279,15 @@ fi
 if FindModule "BaseNXP"; then
     echo "    OsIf_ResumeAllInterrupts();"
 fi
+
+if FindModule "Dio"; then
+    for port in $(grep -h '^#define DioConf_DioChannel_DioChannel_' generate/include/Dio_*fg.h | awk '{ print $2 }'); do
+        echo "    Dio_WriteChannel($port, STD_HIGH);"
+    done
+else
+    if FindModule "Siul2_Dio"; then
+        echo "    Siul2_Dio_Ip_WritePin(SIUL2_DIO_PIN(A, 16), 1);"
+    fi
+fi
+
 echo "}"

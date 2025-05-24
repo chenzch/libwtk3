@@ -1,0 +1,94 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 4.0.0
+* Build Version : S32K3_RTD_4_0_0_HF02_D2407_ASR_REL_4_7_REV_0000_20240725
+*
+* Copyright 2020 - 2024 NXP
+*
+* NXP Confidential. This software is owned or controlled by NXP and may only be
+* used strictly in accordance with the applicable license terms. By expressly
+* accepting such terms or by downloading, installing, activating and/or otherwise
+* using the software, you are agreeing that you have read, and that you agree to
+* comply with and are bound by, such license terms. If you do not agree to be
+* bound by the applicable license terms, then you may not retain, install,
+* activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+#include "Mcal.h"
+#include "OsIf.h"
+#include "Clock_Ip.h"
+#include "Siul2_Port_Ip.h"
+#include "Tspc_Port_Ip.h"
+#include "Siul2_Dio_Ip.h"
+#include "Dma_Ip.h"
+#include "CDD_Rm.h"
+#include "Lpuart_Uart_Ip.h"
+#include "IntCtrl_Ip.h"
+#include "libwtk3.h"
+
+uint8_t u8SendDataBuffer[15] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff};
+volatile uint8_t u8SendComplete;
+
+void UartCallback(const uint8 HwInstance, const Lpuart_Uart_Ip_EventType Event, void *UserData) {
+	if (LPUART_UART_IP_EVENT_END_TRANSFER == Event) {
+		u8SendComplete = 1;
+	}
+	(void)HwInstance;
+	(void)UserData;
+}
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+    OsIf_SuspendAllInterrupts();
+    OsIf_Init(NULL_PTR);
+
+    Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
+    Siul2_Port_Ip_Init(NUM_OF_CONFIGURED_PINS_PortContainer_0_BOARD_InitPeripherals, &g_pin_mux_InitConfigArr_PortContainer_0_BOARD_InitPeripherals[0]);
+
+    Dma_Ip_Init(&Dma_Ip_xDmaInitPB);
+    Rm_Init(&Rm_Config);
+
+    Lpuart_Uart_Ip_Init(0, &Lpuart_Uart_Ip_xHwConfigPB_0);
+
+    IntCtrl_Ip_Init(&IntCtrlConfig_0);
+
+    OsIf_ResumeAllInterrupts();
+
+    Siul2_Dio_Ip_WritePin(SIUL2_DIO_PIN(A, 16), 1);
+
+    for(;;)
+    {
+    	uint32_t delay_tick = 0xFFFFFF;
+    	u8SendComplete = 0;
+    	Lpuart_Uart_Ip_AsyncSend(0, u8SendDataBuffer, 15);
+
+    	while(u8SendComplete == 0);
+
+    	while(delay_tick --);
+    }
+
+    for (;;)
+        ;
+}
+
+/** @} */

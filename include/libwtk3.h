@@ -24,6 +24,71 @@
 extern "C" {
 #endif
 
+#if !defined(ARRAY_SIZE)
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
+
+// Siul2_Dio_Ip.h included
+#if defined(SIUL2_DIO_IP_H)
+#define SIUL2_DIO_PIN(Port, Pin) (((Pin) < 16) ? PT##Port##_L_HALF : PT##Port##_H_HALF), ((Pin) & 0x0F)
+#endif
+
+// 4, 5, 10, 68, 69,
+// Siul2_Port_Ip.h included
+#if defined(SIUL2_PORT_IP_H)
+#if defined(S32K311_SIUL2_H_) // 145 pins
+#define SIUL2_UNTOUCHED_PIN \
+	4, 5, 10, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 38, 39, \
+	50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 82, 83, 84, 85, 86, \
+	87, 88, 89, 90, 91, 92, 93, 94, 95, 114, 115, 116, 117, 118, 119, 120, 121, \
+	122, 123, 124, 125, 126, 127, 132, 133, 142
+#elif defined(S32K312_SIUL2_H_) // 155 pins
+#define SIUL2_UNTOUCHED_PIN \
+	4, 5, 10, 22, 23, 38, 39, 63, 68, 69, 86, 115, 121
+#elif defined(S32K322_SIUL2_H_) // 155 pins
+#define SIUL2_UNTOUCHED_PIN \
+	4, 5, 10, 38, 39, 62, 63, 68, 69, 86, 114, 115, 121, 147, 148
+#elif defined(S32K341_SIUL2_H_) || defined(S32K342_SIUL2_H_) // 155 pins
+#define SIUL2_UNTOUCHED_PIN \
+	4, 5, 10, 22, 23, 38, 39, 62, 63, 68, 69, 86, 114, 115, 121, 147, 148
+#elif defined(S32K314_SIUL2_H_) || defined(S32K324_SIUL2_H_) || defined(S32K344_SIUL2_H_) // 220 pins
+#define SIUL2_UNTOUCHED_PIN \
+	4, 5, 10, 38, 39, 68, 69
+#elif defined(S32K358_SIUL2_H_) // 237 pins
+#define SIUL2_UNTOUCHED_PIN \
+	4, 5, 10, 38, 39, 68, 69
+#elif defined(S32K388_SIUL2_H_) // 237 pins
+#define SIUL2_UNTOUCHED_PIN \
+	4, 5, 10, 38, 39, 68, 69, 141
+#else
+#error unkonwn chipset
+#endif
+static inline void Siul2_Port_ResetUnusedPins(uint32_t NumberOfUntouchedPins, uint32_t *UntouchedPins) {
+    uint32_t unusedPinIndex = 0;
+    for (uint32_t i = 0; i < SIUL2_MSCR_COUNT; i++) {
+        if (unusedPinIndex < NumberOfUntouchedPins) {
+            while (i > UntouchedPins[unusedPinIndex]) {
+                unusedPinIndex++;
+                if (unusedPinIndex >= NumberOfUntouchedPins) {
+                    break;
+                }
+            }
+            if ((unusedPinIndex < NumberOfUntouchedPins) && (i == UntouchedPins[unusedPinIndex])) {
+                unusedPinIndex++;
+                continue;
+            }
+        }
+        if ((i & (~1U)) == 24) {
+            Siul2_Port_Ip_SetPinDirection((Siul2_Port_Ip_PortType *)(SIUL2_MSCR_BASE + (i & ~0xFU)), (i & 0xF), SIUL2_PORT_IN);
+            Siul2_Port_Ip_SetPullSel((Siul2_Port_Ip_PortType *)(SIUL2_MSCR_BASE + (i & ~0xFU)), (i & 0xF), PORT_INTERNAL_PULL_DOWN_ENABLED);
+        } else {
+            Siul2_Port_Ip_SetPinDirection((Siul2_Port_Ip_PortType *)(SIUL2_MSCR_BASE + (i & ~0xFU)), (i & 0xF), SIUL2_PORT_OUT);
+            Siul2_Port_Ip_SetOutputBuffer((Siul2_Port_Ip_PortType *)(SIUL2_MSCR_BASE + (i & ~0xFU)), (i & 0xF), 1, PORT_MUX_AS_GPIO);
+        }
+    }
+}
+#endif
+
 #define MAX_HSE_TASK_NUM (4)
 
 // Hse_Ip.h included
