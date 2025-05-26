@@ -13,6 +13,11 @@ FileExist() {
     [ ${#matching_files[@]} -gt 0 ]
 }
 
+FindProcessor() {
+    local pattern="processor=\"$processor\""
+    grep "<processor>" "$MexFile" | tr '<>' '  ' | awk '{ print $2}'
+}
+
 # Header file processing
 echo "// Header files"
 if FindModule "BaseNXP"; then
@@ -55,8 +60,20 @@ if FindModule "Rm"; then
     echo "#include \"CDD_Rm.h\""
 fi
 
+if FindModule "Flexio_Mcl_Ip"; then
+    echo "#include \"Flexio_Mcl_Ip.h\""
+fi
+
 if FindModule "Lpuart_Uart"; then
     echo "#include \"Lpuart_Uart_Ip.h\""
+fi
+
+if FindModule "C40_Ip"; then
+    echo "#include \"C40_Ip.h\""
+fi
+
+if FindModule "Cache_Ip"; then
+    echo "#include \"Cache_Ip.h\""
 fi
 
 if FindModule "Crypto_43_HSE"; then
@@ -160,6 +177,88 @@ if FindModule "Port"; then
     fi
 else
     if FindModule "Siul2_Port"; then
+        declare -a usedpin
+        MaxPin=0
+        case $(FindProcessor) in
+            S32K310|S32K311)
+                usedpin=(4 5 10 18 19 20 21 22 23 24 25 26 27 28 29 30 31 38 39 \
+	                     50 51 52 53 54 55 56 57 58 59 60 61 62 63 82 83 84 85  \
+                         86 87 88 89 90 91 92 93 94 95 114 115 116 117 118 119  \
+                         120 121 122 123 124 125 126 127 132 133 142)
+                MaxPin=145
+                ;;
+            S32K312)
+                usedpin=(4 5 10 22 23 38 39 63 68 69 86 115 121)
+                MaxPin=155
+                ;;
+            S32K322)
+                usedpin=(4 5 10 38 39 62 63 68 69 86 114 115 121 147 148)
+                MaxPin=155
+                ;;
+            S32K341)
+                usedpin=(4 5 10 22 23 38 39 62 63 68 69 86 114 115 121 147 148)
+                MaxPin=155
+                ;;
+            S32K314|S32K324|S32K344)
+                usedpin=(4 5 10 38 39 68 69)
+                MaxPin=220
+                ;;
+            S32K328|S32K338|S32K348|S32K358)
+                usedpin=(4 5 10 38 39 68 69)
+                MaxPin=237
+                ;;
+            S32K388)
+                usedpin=(4 5 10 38 39 68 69 141)
+                MaxPin=237
+                ;;
+            *)
+                echo "Error: Invalid processor argument."
+                exit 1
+                ;;
+        esac
+
+        declare -A usedpin_map
+        for pin in "${usedpin[@]}"; do
+            usedpin_map["$pin"]=1
+        done
+
+        while IFS= read -r line; do
+            if [[ $line =~ ^([A-Z])([0-9]+) ]]; then
+                letter="${BASH_REMATCH[1]}"
+                digit="${BASH_REMATCH[2]}"
+                number=$(( ( $(printf "%d" "'$letter") - $(printf "%d" "'A") ) * 32 + digit ))
+                usedpin_map["$number"]=1
+            fi
+        done < <(grep "<pin peripheral=.*pin_signal" "$MexFile" | sed 's/.*pin_signal=\"PT//' | tr '>"' '  ')
+
+        declare -a unusedPins
+        for i in $(seq 0 $((MaxPin - 1))); do
+            if [[ -z ${usedpin_map["$i"]} ]]; then
+            unusedPins+=("$i")
+            fi
+        done
+
+        echo "    {
+        static const uint8_t unusedPins[] = {"
+        count=0
+        for pin in "${unusedPins[@]}"; do
+            if [ $((count % 16)) -eq 0 ]; then
+                printf "            "
+            fi
+            printf "%s, " "$pin"
+            ((count++))
+            if [ $((count % 16)) -eq 0 ]; then
+                printf "\n"
+            fi
+        done
+
+        if [ $((count % 16)) -ne 0 ]; then
+            printf "\n"
+        fi
+
+        echo "        };
+        Siul2_Port_DisableUnusedPins(ARRAY_SIZE(unusedPins), &unusedPins[0]);
+    }"
         for numval in $(grep -h '^#define NUM_OF_CONFIGURED_PINS_' board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
             Array_Name=$(grep "\[$numval\]" board/Siul2_Port_Ip_Cfg.h | tr '[' ' ' | awk ' { print $4 }')
             echo "    {
@@ -210,10 +309,43 @@ if FindModule "Rm"; then
     echo "    Rm_Init($Rm_Parameter);"
 fi
 
+if FindModule "Flexio_Mcl_Ip"; then
+    Flexio_Parameter="NULL_PTR"
+    if FileExist "generate/include/Flexio_Mcl_Ip_*fg.h"; then
+        Flexio_Parameter=$(grep -h '^extern const Flexio_Ip_InstanceConfigType .*;' generate/include/Flexio_Mcl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        Flexio_Parameter="&$Flexio_Parameter"
+    fi
+    echo "    {
+        Flexio_Ip_CommonStatusType status = Flexio_Mcl_Ip_InitDevice($Flexio_Parameter);
+#if defined(DEBUG_ASSERT)
+        DevAssert((Flexio_Ip_CommonStatusType)FLEXIO_IP_COMMON_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+    }"
+fi
+
 if FindModule "Lpuart_Uart"; then
     for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
         echo "    Lpuart_Uart_Ip_Init(${instance/Lpuart_Uart_Ip_xHwConfigPB_/}, &$instance);"
     done
+fi
+
+if FindModule "C40_Ip"; then
+    C40_Parameter="NULL_PTR"
+    if FileExist "generate/include/C40_Ip_*fg.h"; then
+        C40_Parameter=$(grep -h 'extern const C40_Ip_ConfigType .*;' generate/include/C40_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        C40_Parameter="&$C40_Parameter"
+    fi
+    echo "    {
+        C40_Ip_StatusType status = C40_Ip_Init($C40_Parameter);
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+    }"
+fi
+
+if FindModule "Cache_Ip"; then
+    echo "    // Cache_Ip_Enable(CACHE_IP_CORE, CACHE_IP_INSTRUCTION);"
+    echo "    // Cache_Ip_Enable(CACHE_IP_CORE, CACHE_IP_DATA);"
 fi
 
 if FindModule "Crypto_43_HSE"; then

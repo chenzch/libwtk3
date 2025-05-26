@@ -1,0 +1,187 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 4.0.0
+* Build Version : S32K3_RTD_4_0_0_HF02_D2407_ASR_REL_4_7_REV_0000_20240725
+*
+* Copyright 2020 - 2024 NXP
+*
+* NXP Confidential. This software is owned or controlled by NXP and may only be
+* used strictly in accordance with the applicable license terms. By expressly
+* accepting such terms or by downloading, installing, activating and/or otherwise
+* using the software, you are agreeing that you have read, and that you agree to
+* comply with and are bound by, such license terms. If you do not agree to be
+* bound by the applicable license terms, then you may not retain, install,
+* activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+#include "Mcal.h"
+#include "OsIf.h"
+#include "Clock_Ip.h"
+#include "Siul2_Port_Ip.h"
+#include "Flexio_Mcl_Ip.h"
+#include "libwtk3.h"
+
+#define DEBUG_ASSERT
+
+#if defined(DEBUG_ASSERT)
+#include "Devassert.h"
+#endif /* #if defined(DEBUG_ASSERT) */
+
+static uint32_t expandData(uint8_t value) {
+	uint32_t ret = 011111111;
+	for (uint32_t index = 0; index < 8; ++index) {
+		if (value & 0x80) {
+			ret |= 1 << (3 * index + 1);
+		}
+		value <<= 1;
+	}
+	return ret;
+}
+
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+    OsIf_SuspendAllInterrupts();
+    OsIf_Init(NULL_PTR);
+    Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
+    Siul2_Port_Ip_Init(NUM_OF_CONFIGURED_PINS_PortContainer_0_BOARD_InitPeripherals, &g_pin_mux_InitConfigArr_PortContainer_0_BOARD_InitPeripherals[0]);
+    Flexio_Mcl_Ip_InitDevice(&Flexio_Ip_xFlexioInit);
+
+    OsIf_ResumeAllInterrupts();
+
+    // FlexIO PIN 27 28 7 31
+    // UART Transmit
+    /**
+     * TIMCMP = 0x0F01
+     * TIMOUT = 0	TimerOutput			x
+     * TIMDEC = 0	TimerDecrement		x
+     * TIMRST = 0	TimerReset			x
+     * TIMDIS = 2	TimerDisable		x
+     * TIMENA = 2	TimerEnable			x
+     * TSTOP = 2	TimerStop			x
+     * TSTART = 1	TimerStartBit		x
+     *
+     * TRGSEL = 1	TriggerSource		x
+     * TRGPOL = 1	TriggerPolarity		x
+     * TRGSRC = 1	TriggerSourceType	x
+     * PINCFG = 0	PinOutType			x
+     * PINSEL = 0	PinNumber			x
+     * PINPOL = 0	PinPolarity			x
+     * PININS = 0	UseNextPinForInput	x
+     * ONETIM = 0	OneShot				x
+     * TIMOD = 1	TimerMode			x
+     */
+    {
+//		Flexio_Pins_ToggleOutput = BIT(7);
+
+		static const Flexio_Timer_Config_t timerConfig = {
+            .TimerID = 0,
+
+            .TriggerSourceType = FLEXIO_TRIGGER_SOURCE_INTERNAL,
+            .TriggerSource = TIMER_TRIGGER_INTERNAL_SHIFTER(0),
+            .TriggerPolarity = FLEXIO_TRIGGER_POLARITY_LOW,
+
+            .PinNumber = 0, // Pin 27
+            .PinOutType = FLEXIO_PIN_CONFIG_DISABLED,
+            .PinPolarity = FLEXIO_PIN_POLARITY_HIGH,
+            .UseNextPinForInput = false,
+
+            .OneShot = false,
+            .TimerMode = FLEXIO_TIMER_MODE_8BIT_BAUD,
+
+            .TimerOutput = FLEXIO_TIMER_INITOUT_ONE,
+            .TimerDecrement = TIMER_DECREMENT_FLEXIO_DIV_256, // TIMER_DECREMENT_CLK_SHIFT_TMR
+            .TimerReset = FLEXIO_TIMER_RESET_NEVER,
+            .TimerDisable = FLEXIO_TIMER_DISABLE_TIM_CMP,
+            .TimerEnable = FLEXIO_TIMER_ENABLE_TRG_HIGH,
+            .TimerStop = FLEXIO_TIMER_STOP_BIT_DISABLED,
+            .TimerStartBit = FLEXIO_TIMER_START_BIT_DISABLED,
+        };
+        Flexio_Timer_Init(&timerConfig, 0x2F02U); // 16bit * 2 - 1 = 0xF, 2 clock 1 bit
+
+        /**
+         * PWIDTH = 0	ParallelWidth	x
+         * SSIZE = 0	Mode24bit		x
+         * LASTST = 0	LastStore		x
+         * INSRC = 0	InputSource		x
+         * SSTOP = 3	StopBit			x
+         * SSTART = 2	StartBit		x
+         *
+         * TIMSEL = 0	TimerInputID	x
+         * TIMPOL = 0	TimerPolarity	x
+         * PINCFG = 3	PinOutType		x
+         * PINSEL = 0	PinNumber		x
+         * PINPOL = 0	PinPolarity		x
+         * SMOD = 2		ShifterMode		x
+         */
+
+        static const Flexio_Shifter_Config_t shifterConfig = {
+            .ShifterID = 0,
+            .ShifterMode = SHIFTER_MODE_TRANSMIT,
+
+            .TimerInputID = 0, // Use Timer 0
+            .TimerPolarity = FLEXIO_TIMER_POLARITY_POSEDGE,
+
+            .PinNumber = 28, // Pin 28
+            .PinOutType = FLEXIO_PIN_CONFIG_OUTPUT,
+            .PinPolarity = FLEXIO_PIN_POLARITY_HIGH,
+
+            .Mode24bit = true,
+            .ParallelWidth = 0, // 1 bits
+
+            .LastStore = SHIFTER_STORE_PRESHIFT,
+            .InputSource = FLEXIO_SHIFTER_SOURCE_PIN, // Use Pin as input
+            .StartBit = FLEXIO_SHIFTER_START_BIT_DISABLED,
+            .StopBit = FLEXIO_SHIFTER_STOP_BIT_DISABLED,
+        };
+        Flexio_Shifter_Init(&shifterConfig);
+
+        Flexio_Shifter_Buffer(0) = 0;
+
+        uint8_t data[] = { 0x12, 0x34, 0x56, 0x78 };
+
+        for (int index = 0; index < 4; ++index) {
+
+//			Flexio_Pins_ToggleOutput = BIT(7);
+
+			uint32_t sendData = expandData(data[index]);
+
+			while ((Flexio_Shifter_State & BIT(0)) == 0) {
+        		__asm("NOP");
+        	}
+
+			Flexio_Shifter_Buffer(0) = sendData;
+
+//			Flexio_Pins_ToggleOutput = BIT(7);
+        }
+
+        for (;;) {
+        }
+
+    }
+
+    for (;;)
+        ;
+}
+
+/** @} */
