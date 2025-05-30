@@ -64,11 +64,11 @@ static inline void Siul2_Port_DisableUnusedPins(uint32_t       NumberOfUnusedPin
 
 // Flexio_Mcl_Ip.h included
 #if defined(FLEXIO_MCL_IP_H)
-#define Flexio_Pins_Input  (IP_FLEXIO->PIN)
-#define Flexio_Pins_Output (IP_FLEXIO->PINOUTD)
-#define Flexio_Pins_Status (IP_FLEXIO->PINSTAT
-#define Flexio_Pins_OutputEnable (IP_FLEXIO->PINOUTE)
-#define Flexio_Pins_OutputDisable (IP_FLEXIO->PINOUTDIS)
+#define Flexio_Pins_Input           (IP_FLEXIO->PIN)
+#define Flexio_Pins_Output          (IP_FLEXIO->PINOUTD)
+#define Flexio_Pins_Status          (IP_FLEXIO->PINSTAT)
+#define Flexio_Pins_OutputEnable    (IP_FLEXIO->PINOUTE)
+#define Flexio_Pins_OutputDisable   (IP_FLEXIO->PINOUTDIS)
 #define Flexio_Pins_ClearOutput     (IP_FLEXIO->PINOUTCLR)
 #define Flexio_Pins_SetOutput       (IP_FLEXIO->PINOUTSET)
 #define Flexio_Pins_ToggleOutput    (IP_FLEXIO->PINOUTTOG)
@@ -203,7 +203,8 @@ static inline void Flexio_Shifter_Init(const Flexio_Shifter_Config_t *Config) {
         FLEXIO_SHIFTCFG_SSIZE(Config->Mode24bit) | FLEXIO_SHIFTCFG_PWIDTH(Config->ParallelWidth);
 
     if (SetOutput) {
-        Flexio_Shifter_Control(Config->ShifterID) |= FLEXIO_SHIFTCTL_PINCFG(FLEXIO_PIN_CONFIG_OUTPUT);
+        Flexio_Shifter_Control(Config->ShifterID) |=
+            FLEXIO_SHIFTCTL_PINCFG(FLEXIO_PIN_CONFIG_OUTPUT);
     }
 }
 
@@ -282,6 +283,13 @@ static inline void Flexio_Timer_Init(const Flexio_Timer_Config_t *Config, uint32
         FLEXIO_TIMCFG_TIMOUT(Config->TimerOutput);
     Flexio_Timer_Compare(Config->TimerID) = CompareValue;
 }
+
+#endif
+
+// C40_Ip.h included
+#if defined(C40_IP_H)
+
+#define C40_WaitForDone() do { IP_FLASH->MCR |= FLASH_MCR_EHV_MASK; while(0 == (IP_FLASH->MCRS & FLASH_MCRS_DONE_MASK)); } while (0)
 
 #endif
 

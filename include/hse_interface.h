@@ -126,17 +126,17 @@ typedef uint8_t bool_t;
  * HSE_S32K3X6 - S32K396, S32K376, S32K394, S32K374
  * HSE_S32K388 - S32K388
  */
-#if defined(S32K344) || defined(S32K324) || defined(S32K314)
+#if defined(CPU_S32K344) || defined(CPU_S32K324) || defined(CPU_S32K314)
     #define HSE_PLATFORM       HSE_S32K3X4              /**< @brief  HSE Platform. */
-#elif defined(S32K311) || defined(S32K310)
+#elif defined(CPU_S32K311) || defined(CPU_S32K310)
     #define HSE_PLATFORM       HSE_S32K3X1              /**< @brief  HSE Platform. */
-#elif defined(S32K312) || defined(S32K342) || defined(S32K322) || defined(S32K341)
+#elif defined(CPU_S32K312) || defined(CPU_S32K342) || defined(CPU_S32K322) || defined(CPU_S32K341)
     #define HSE_PLATFORM       HSE_S32K3X2              /**< @brief  HSE Platform. */
-#elif defined(S32K358) || defined(S32K348) || defined(S32K338) || defined(S32K328) || defined(S32K336) || defined(S32K356)
+#elif defined(CPU_S32K358) || defined(CPU_S32K348) || defined(CPU_S32K338) || defined(CPU_S32K328) || defined(CPU_S32K336) || defined(CPU_S32K356)
     #define HSE_PLATFORM       HSE_S32K358              /**< @brief  HSE Platform. */
-#elif defined(S32K396) || defined(S32K376) || defined(S32K394) || defined(S32K374)
+#elif defined(CPU_S32K396) || defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K374)
     #define HSE_PLATFORM       HSE_S32K3X6              /**< @brief  HSE Platform. */
-#elif defined(S32K388)
+#elif defined(CPU_S32K388)
     #define HSE_PLATFORM       HSE_S32K388              /**< @brief  HSE Platform. */
 #else
     #error "No platform is selected. At least one platform should be selected."

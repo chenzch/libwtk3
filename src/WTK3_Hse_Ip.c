@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 // Dummy define for S32K344 to skip error check. Do not use HSE_PLATFORM in this project
-#define S32K344
+#define CPU_S32K344
 #include "hse_interface.h"
 #include "Hse_Ip.h"
 #include "libwtk3.h"

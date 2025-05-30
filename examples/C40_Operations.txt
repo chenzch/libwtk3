@@ -1,0 +1,136 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 4.0.0
+* Build Version : S32K3_RTD_4_0_0_HF02_D2407_ASR_REL_4_7_REV_0000_20240725
+*
+* Copyright 2020 - 2024 NXP
+*
+* NXP Confidential. This software is owned or controlled by NXP and may only be
+* used strictly in accordance with the applicable license terms. By expressly
+* accepting such terms or by downloading, installing, activating and/or otherwise
+* using the software, you are agreeing that you have read, and that you agree to
+* comply with and are bound by, such license terms. If you do not agree to be
+* bound by the applicable license terms, then you may not retain, install,
+* activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+#include "Mcal.h"
+#include "OsIf.h"
+#include "C40_Ip.h"
+#include "Cache_Ip.h"
+#include "libwtk3.h"
+
+#define DEBUG_ASSERT
+
+#if defined(DEBUG_ASSERT)
+#include "Devassert.h"
+#endif /* #if defined(DEBUG_ASSERT) */
+
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+    C40_Ip_StatusType status;
+    OsIf_SuspendAllInterrupts();
+    OsIf_Init(NULL_PTR);
+
+    {
+        status = C40_Ip_Init(&C40_Ip_InitCfg);
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+    }
+
+    OsIf_ResumeAllInterrupts();
+
+    #define EXAMPLE_MASTER_ID (0U)
+
+    uint32_t address = 0x00410000U; // Example address in Code Block 1
+
+    C40_Ip_VirtualSectorsType sector = C40_Ip_GetSectorNumberFromAddress(address);
+
+    if (C40_IP_STATUS_SECTOR_PROTECTED == C40_Ip_GetLock(sector))
+    {
+    	status = C40_Ip_ClearLock(sector, EXAMPLE_MASTER_ID);
+
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+    }
+
+    C40_Ip_SetAsyncMode(FALSE);
+
+    status = C40_Ip_MainInterfaceSectorErase(sector, EXAMPLE_MASTER_ID);
+
+    C40_WaitForDone();
+
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+
+    do {
+    	status = C40_Ip_MainInterfaceSectorEraseStatus();
+    } while (C40_IP_STATUS_BUSY == status);
+
+#if defined(DEBUG_ASSERT)
+    DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+
+#define WRITE_SIZE (16U)
+    static const uint8_t TxBuffer[WRITE_SIZE] = "Hello, Flash!";
+    static const uint32_t t_BufferSize = WRITE_SIZE;
+
+    status = C40_Ip_MainInterfaceWrite(address, t_BufferSize, TxBuffer, EXAMPLE_MASTER_ID);
+
+    C40_WaitForDone();
+
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+
+    do {
+    	status = C40_Ip_MainInterfaceWriteStatus();
+    } while (C40_IP_STATUS_BUSY == status);
+
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+
+        static uint8_t RxBuffer[WRITE_SIZE]; // Buffer to read data back
+
+    status = C40_Ip_Read(address, t_BufferSize, RxBuffer);
+
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+
+    status = C40_Ip_Compare(address, t_BufferSize, TxBuffer);
+
+#if defined(DEBUG_ASSERT)
+        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */
+
+    for (;;)
+        ;
+}
+
+/** @} */
