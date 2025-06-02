@@ -48,6 +48,10 @@ else
     fi
 fi
 
+if FindModule "Siul2_Icu"; then
+    echo "#include \"Siul2_Icu_Ip.h\""
+fi
+
 if FindModule "POWER"; then
     echo "#include \"Power_Ip.h\""
 fi
@@ -74,6 +78,10 @@ fi
 
 if FindModule "Cache_Ip"; then
     echo "#include \"Cache_Ip.h\""
+fi
+
+if FindModule "Wkpu"; then
+    echo "#include \"Wkpu_Ip.h\""
 fi
 
 if FindModule "Crypto_43_HSE"; then
@@ -271,6 +279,27 @@ else
     fi
 fi
 
+if FindModule "Siul2_Icu"; then
+    IcuConfig="NULL_PTR"
+    if FileExist "generate/include/Siul2_Icu_Ip_*fg.h"; then
+        IcuConfig=$(grep -h 'extern const Siul2_Icu_Ip_ConfigType .*;' generate/include/Siul2_Icu_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        IcuConfig="&$IcuConfig"
+    fi
+    echo "    {
+        Siul2_Icu_Ip_StatusType status = Siul2_Icu_Ip_Init(0, $IcuConfig);
+#if defined(DEBUG_ASSERT)
+        DevAssert((Siul2_Icu_Ip_StatusType)SIUL2_ICU_IP_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */"
+    for file in generate/src/Siul2_Icu_Ip_*fg.c; do
+        if [ -f "$file" ]; then
+            ChannelName=$(grep -A 1 "Siul2 HW Module and Channel used by the Icu channel" "$file" | grep -v "Siul2 HW Module and Channel used by the Icu channel" | grep -oE '[0-9]+')
+            echo "        Siul2_Icu_Ip_EnableInterrupt(0, $ChannelName);
+        Siul2_Icu_Ip_EnableNotification(0, $ChannelName);"
+        fi
+    done
+    echo "    }"
+fi
+
 if FindModule "POWER"; then
     Power_Parameter="NULL_PTR"
     if FileExist "generate/include/Power_Ip_*fg.h"; then
@@ -346,6 +375,29 @@ fi
 if FindModule "Cache_Ip"; then
     echo "    // Cache_Ip_Enable(CACHE_IP_CORE, CACHE_IP_INSTRUCTION);"
     echo "    // Cache_Ip_Enable(CACHE_IP_CORE, CACHE_IP_DATA);"
+fi
+
+if FindModule "Wkpu"; then
+    WkpuConfig="NULL_PTR"
+    if FileExist "generate/include/Wkpu_Ip_*fg.h"; then
+        WkpuConfig=$(grep -h 'extern const Wkpu_Ip_IrqConfigType .*;' generate/include/Wkpu_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        WkpuConfig="&$WkpuConfig"
+    fi
+    echo "    {
+        Wkpu_Ip_StatusType status = Wkpu_Ip_Init(0, $WkpuConfig);
+#if defined(DEBUG_ASSERT)
+        DevAssert((Wkpu_Ip_StatusType)WKPU_IP_SUCCESS == status);
+#endif /* #if defined(DEBUG_ASSERT) */"
+    for file in generate/src/Wkpu_Ip_*fg.c; do
+        if [ -f "$file" ]; then
+            ChannelName=$(grep -A 1 "Wkpu HW Channel used by the Icu channel" "$file" | grep -v "Wkpu HW Channel used by the Icu channel" | grep -oE '[0-9]+')
+            echo "        Wkpu_Ip_EnableInterrupt(0, $ChannelName);
+        Wkpu_Ip_EnableNotification($ChannelName);
+        Wkpu_Ip_GetInputState(0, $ChannelName);"
+        fi
+    done
+    echo "    }"
+
 fi
 
 if FindModule "Crypto_43_HSE"; then

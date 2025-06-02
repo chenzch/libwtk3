@@ -36,10 +36,18 @@ extern "C" {
 #define BIT(n) (1U << (n))
 #endif
 
+static inline void NopDelay(uint32_t count) {
+    register uint32_t Count = count;
+    while (Count--) {
+        __asm("nop");
+    }
+}
+
 // Siul2_Dio_Ip.h included
 #if defined(SIUL2_DIO_IP_H)
 #define SIUL2_DIO_PIN(Port, Pin)                                                                   \
     (((Pin) < 16) ? PT##Port##_L_HALF : PT##Port##_H_HALF), ((Pin) & 0x0F)
+#define SIUL2_DIO_NAMED_PIN(NAME) NAME##_PORT, NAME##_PIN
 #endif
 
 // Siul2_Port_Ip.h included
@@ -60,6 +68,39 @@ static inline void Siul2_Port_DisableUnusedPins(uint32_t       NumberOfUnusedPin
         }
     }
 }
+
+#if defined(DEBUGPIN)
+
+#define DEBUGPINOUT ((&IP_SIUL2->GPDO3)[DEBUGPIN ^ 3])
+
+#define LogInit()                                                                                  \
+    do {                                                                                           \
+        DEBUGPINOUT = 1;                                                                           \
+        IP_SIUL2->MSCR[(DEBUGPIN)] |= SIUL2_MSCR_OBE_MASK;                                         \
+    } while (0)
+
+#define LogOut(DATA)                                                                               \
+    do {                                                                                           \
+        register volatile uint8_t *pOut   = &DEBUGPINOUT;                                          \
+        register uint32_t          signal = (0x300 | (DATA)) << 1;                                 \
+        for (register uint32_t index = 0; index < 11; ++index, signal >>= 1) {                     \
+            pOut[0] = (signal & 1);                                                                \
+            __asm("nop\nnop\nnop");                                                                \
+        }                                                                                          \
+    } while (0)
+
+#else
+
+#define LogInit()                                                                                  \
+    do {                                                                                           \
+    } while (0)
+
+#define LogOut(DATA)                                                                               \
+    do {                                                                                           \
+    } while (0)
+
+#endif
+
 #endif
 
 // Flexio_Mcl_Ip.h included
@@ -289,7 +330,12 @@ static inline void Flexio_Timer_Init(const Flexio_Timer_Config_t *Config, uint32
 // C40_Ip.h included
 #if defined(C40_IP_H)
 
-#define C40_WaitForDone() do { IP_FLASH->MCR |= FLASH_MCR_EHV_MASK; while(0 == (IP_FLASH->MCRS & FLASH_MCRS_DONE_MASK)); } while (0)
+#define C40_WaitForDone()                                                                          \
+    do {                                                                                           \
+        IP_FLASH->MCR |= FLASH_MCR_EHV_MASK;                                                       \
+        while (0 == (IP_FLASH->MCRS & FLASH_MCRS_DONE_MASK))                                       \
+            ;                                                                                      \
+    } while (0)
 
 #endif
 
