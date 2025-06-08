@@ -43,6 +43,10 @@ static inline void NopDelay(uint32_t count) {
     }
 }
 
+static inline void Breakpoint(void) {
+    __asm("bkpt");
+}
+
 // Siul2_Dio_Ip.h included
 #if defined(SIUL2_DIO_IP_H)
 #define SIUL2_DIO_PIN(Port, Pin)                                                                   \
@@ -258,14 +262,10 @@ static inline void Flexio_Shifter_Init(const Flexio_Shifter_Config_t *Config) {
 #define TIMER_TRIGGER_INTERNAL_TIMER(n)   (((n) << 2) | 3) // Internal timer trigger
 
 typedef enum {
-    TIMER_DECREMENT_CLK_SHIFT_TMR =
-        0x00U, /*!< Decrement counter on FlexIO clock, Shift clock equals Timer output. */
-    TIMER_DECREMENT_TRG_SHIFT_TMR =
-        0x01U, /*!< Decrement counter on Trigger input (both edges), Shift clock equals Timer output. */
-    TIMER_DECREMENT_PIN_SHIFT_PIN =
-        0x02U, /*!< Decrement counter on Pin input (both edges), Shift clock equals Pin input. */
-    TIMER_DECREMENT_TRG_SHIFT_TRG =
-        0x03U, /*!< Decrement counter on Trigger input (both edges), Shift clock equals Trigger input. */
+    TIMER_DECREMENT_FLEXIO              = FLEXIO_TIMER_DECREMENT_CLK_SHIFT_TMR,
+    TIMER_DECREMENT_TRG_SHIFT_TMR       = FLEXIO_TIMER_DECREMENT_TRG_SHIFT_TMR,
+    TIMER_DECREMENT_PIN_SHIFT_PIN       = FLEXIO_TIMER_DECREMENT_PIN_SHIFT_PIN,
+    TIMER_DECREMENT_TRG_SHIFT_TRG       = FLEXIO_TIMER_DECREMENT_TRG_SHIFT_TRG,
     TIMER_DECREMENT_FLEXIO_DIV_16       = 0x04U,
     TIMER_DECREMENT_FLEXIO_DIV_256      = 0x05U,
     TIMER_DECREMENT_PIN_IN_RISING_EDGE  = 0x06U,
@@ -301,6 +301,8 @@ typedef struct {
 
 static inline void Flexio_Timer_Init(const Flexio_Timer_Config_t *Config, uint32_t CompareValue) {
 
+    bool SetOutput = false;
+
     if (Config->TimerID >= FLEXIO_TIMCTL_COUNT) {
         return; // Invalid TimerID
     }
@@ -310,11 +312,19 @@ static inline void Flexio_Timer_Init(const Flexio_Timer_Config_t *Config, uint32
         return;
     }
 
+    Flexio_Mcl_Ip_PinConfigType PinConfig = Config->PinOutType;
+
+    if (FLEXIO_PIN_CONFIG_OUTPUT == PinConfig) {
+        // Handle error: pin configuration is disabled
+        PinConfig = FLEXIO_PIN_CONFIG_BIDIR_OUTPUT;
+        SetOutput = true;
+    }
+
     Flexio_Timer_Control(Config->TimerID) =
         FLEXIO_TIMCTL_TIMOD(Config->TimerMode) | FLEXIO_TIMCTL_ONETIM(Config->OneShot) |
         FLEXIO_TIMCTL_PININS(Config->UseNextPinForInput) |
         FLEXIO_TIMCTL_PINPOL(Config->PinPolarity) | FLEXIO_TIMCTL_PINSEL(Config->PinNumber) |
-        FLEXIO_TIMCTL_PINCFG(Config->PinOutType) | FLEXIO_TIMCTL_TRGPOL(Config->TriggerPolarity) |
+        FLEXIO_TIMCTL_PINCFG(PinConfig) | FLEXIO_TIMCTL_TRGPOL(Config->TriggerPolarity) |
         FLEXIO_TIMCTL_TRGSRC(Config->TriggerSourceType) |
         FLEXIO_TIMCTL_TRGSEL(Config->TriggerSource);
     Flexio_Timer_Config(Config->TimerID) =
@@ -322,7 +332,17 @@ static inline void Flexio_Timer_Init(const Flexio_Timer_Config_t *Config, uint32
         FLEXIO_TIMCFG_TIMENA(Config->TimerEnable) | FLEXIO_TIMCFG_TIMDIS(Config->TimerDisable) |
         FLEXIO_TIMCFG_TIMRST(Config->TimerReset) | FLEXIO_TIMCFG_TIMDEC(Config->TimerDecrement) |
         FLEXIO_TIMCFG_TIMOUT(Config->TimerOutput);
-    Flexio_Timer_Compare(Config->TimerID) = CompareValue;
+    if (SetOutput) {
+        Flexio_Timer_Control(Config->TimerID) |= FLEXIO_TIMCTL_PINCFG(FLEXIO_PIN_CONFIG_OUTPUT);
+    }
+    if (CompareValue <= 0xFFFFU) {
+        Flexio_Timer_Compare(Config->TimerID) = CompareValue;
+    }
+}
+
+static inline void Flexio_Timer_SetMode(uint8_t TimerID, Flexio_Mcl_Ip_TimerModeType Mode) {
+    Flexio_Timer_Control(TimerID) = ((Flexio_Timer_Control(TimerID)) & (~FLEXIO_TIMCTL_TIMOD_MASK)) |
+        FLEXIO_TIMCTL_TIMOD(Mode);
 }
 
 #endif
@@ -332,9 +352,140 @@ static inline void Flexio_Timer_Init(const Flexio_Timer_Config_t *Config, uint32
 
 #define C40_WaitForDone()                                                                          \
     do {                                                                                           \
+        register uint32_t *pMCRS = &IP_FLASH->MCRS;                                                \
         IP_FLASH->MCR |= FLASH_MCR_EHV_MASK;                                                       \
-        while (0 == (IP_FLASH->MCRS & FLASH_MCRS_DONE_MASK))                                       \
+        while (0 == ((*pMCRS) & FLASH_MCRS_DONE_MASK))                                             \
             ;                                                                                      \
+    } while (0)
+
+#endif
+
+// Dma_Ip.h included
+#if defined(DMA_IP_DRIVER_H_)
+
+static inline uint32_t Dma_Config_Address(Dma_Ip_LogicChannelTransferListType* pLocList, uint32_t SourceAddress, uint32_t DestinationAddress) {
+    uint32_t LocCount = 0;
+
+    if (((uint32_t)-1U) != SourceAddress) {
+        LocCount++;
+        pLocList->Param = DMA_IP_CH_SET_SOURCE_ADDRESS;
+        pLocList->Value = SourceAddress;
+        pLocList++;
+    }
+
+    if (((uint32_t)-1U) != DestinationAddress) {
+        LocCount++;
+        pLocList->Param = DMA_IP_CH_SET_DESTINATION_ADDRESS;
+        pLocList->Value = DestinationAddress;
+        pLocList++;
+    }
+
+    return LocCount;
+}
+
+static inline uint32_t Dma_Config_LoopCount(Dma_Ip_LogicChannelTransferListType* pLocList, uint32_t MinorLoopSize, uint32_t MajorLoopCount) {
+    uint32_t LocCount = 0;
+
+    if (MinorLoopSize > 0U) {
+        LocCount++;
+        pLocList->Param = DMA_IP_CH_SET_MINORLOOP_SIZE;
+        pLocList->Value = MinorLoopSize;
+        pLocList++;
+    }
+
+    if (MajorLoopCount > 0U) {
+        LocCount++;
+        pLocList->Param = DMA_IP_CH_SET_MAJORLOOP_COUNT;
+        pLocList->Value = MajorLoopCount;
+        pLocList++;
+    }
+
+    return LocCount;
+}
+
+static inline uint32_t Dma_Config_TransferSize(Dma_Ip_LogicChannelTransferListType* pLocList, uint32_t TransferSize, uint32_t MinorLoopSize) {
+    uint32_t LocCount = 0;
+
+    if (TransferSize > 0U) {
+        LocCount++;
+        pLocList->Param = DMA_IP_CH_SET_SOURCE_TRANSFER_SIZE;
+        pLocList->Value = TransferSize;
+        pLocList++;
+    }
+
+    if (MinorLoopSize > 0U) {
+        LocCount++;
+        pLocList->Param = DMA_IP_CH_SET_DESTINATION_TRANSFER_SIZE;
+        pLocList->Value = TransferSize;
+        pLocList++;
+    }
+
+    return LocCount;
+}
+
+static inline uint32_t Dma_Config_SourceOffset(Dma_Ip_LogicChannelTransferListType* pLocList, int32_t Offset, int32_t LastAdj, uint32_t EleSize, uint32_t Modulo) {
+
+    pLocList->Param = DMA_IP_CH_SET_SOURCE_SIGNED_OFFSET;
+    pLocList->Value = Offset;
+    pLocList++;
+
+    pLocList->Param = DMA_IP_CH_SET_SOURCE_SIGNED_LAST_ADDR_ADJ;
+    pLocList->Value = LastAdj;
+    pLocList++;
+
+    pLocList->Param = DMA_IP_CH_SET_SOURCE_TRANSFER_SIZE;
+    pLocList->Value = EleSize;
+    pLocList++;
+
+    pLocList->Param = DMA_IP_CH_SET_SOURCE_MODULO;
+    pLocList->Value = Modulo;
+    pLocList++;
+
+    return 4;
+}
+
+static inline uint32_t Dma_Config_DestinationOffset(Dma_Ip_LogicChannelTransferListType* pLocList, int32_t Offset, int32_t LastAdj, uint32_t EleSize, uint32_t Modulo) {
+
+    pLocList->Param = DMA_IP_CH_SET_DESTINATION_SIGNED_OFFSET;
+    pLocList->Value = Offset;
+    pLocList++;
+
+    pLocList->Param = DMA_IP_CH_SET_DESTINATION_SIGNED_LAST_ADDR_ADJ;
+    pLocList->Value = LastAdj;
+    pLocList++;
+
+    pLocList->Param = DMA_IP_CH_SET_DESTINATION_TRANSFER_SIZE;
+    pLocList->Value = EleSize;
+    pLocList++;
+
+    pLocList->Param = DMA_IP_CH_SET_DESTINATION_MODULO;
+    pLocList->Value = Modulo;
+    pLocList++;
+
+    return 4;
+}
+
+static inline uint32_t Dma_Control_EnMajorInterrupt(Dma_Ip_LogicChannelTransferListType* pLocList, bool enable) {
+    pLocList->Param = DMA_IP_CH_SET_CONTROL_EN_MAJOR_INTERRUPT;
+    pLocList->Value = enable ? 1U : 0U;
+    return 1;
+}
+
+static inline uint32_t Dma_Control_DisableAutoRequest(Dma_Ip_LogicChannelTransferListType* pLocList, bool disable) {
+    pLocList->Param = DMA_IP_CH_SET_CONTROL_DIS_AUTO_REQUEST;
+    pLocList->Value = disable ? 1U : 0U;
+    return 1;
+}
+
+#define Dma_Start(Channel) \
+    Dma_Ip_SetLogicChannelCommand(Channel, DMA_IP_CH_SET_SOFTWARE_REQUEST)
+
+#define Dma_WaitDone(Channel) \
+    do { \
+        Dma_Ip_LogicChannelStatusType t_GetChannelStatus; \
+        do { \
+            Dma_Ip_GetLogicChannelStatus(Channel, &t_GetChannelStatus); \
+        } while (!t_GetChannelStatus.Done); \
     } while (0)
 
 #endif

@@ -1,0 +1,139 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 4.0.0
+* Build Version : S32K3_RTD_4_0_0_HF02_D2407_ASR_REL_4_7_REV_0000_20240725
+*
+* Copyright 2020 - 2024 NXP
+*
+* NXP Confidential. This software is owned or controlled by NXP and may only be
+* used strictly in accordance with the applicable license terms. By expressly
+* accepting such terms or by downloading, installing, activating and/or otherwise
+* using the software, you are agreeing that you have read, and that you agree to
+* comply with and are bound by, such license terms. If you do not agree to be
+* bound by the applicable license terms, then you may not retain, install,
+* activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+#include "Mcal.h"
+#include "OsIf.h"
+#include "Clock_Ip.h"
+#include "Siul2_Port_Ip.h"
+#include "Flexio_Mcl_Ip.h"
+#include "libwtk3.h"
+
+#define DEBUG_ASSERT
+
+#if defined(DEBUG_ASSERT)
+#include "Devassert.h"
+#endif /* #if defined(DEBUG_ASSERT) */
+
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+    OsIf_SuspendAllInterrupts();
+    OsIf_Init(NULL_PTR);
+    Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
+    Siul2_Port_Ip_Init(NUM_OF_CONFIGURED_PINS_PortContainer_0_BOARD_InitPeripherals, &g_pin_mux_InitConfigArr_PortContainer_0_BOARD_InitPeripherals[0]);
+    Flexio_Mcl_Ip_InitDevice(&Flexio_Ip_xFlexioInit);
+
+    OsIf_ResumeAllInterrupts();
+
+#define DEBUG_PIN 16
+#define OUTPUT_PIN 14
+
+    Flexio_Pins_ClearOutput = BIT(DEBUG_PIN);
+
+    for (uint32_t stepcount = 0; stepcount < 10; ++stepcount) {
+    	Flexio_Pins_ToggleOutput = BIT(DEBUG_PIN);
+    	NopDelay(48000);
+    }
+
+    NopDelay(48000); // Wait for 1 second to ensure the system is stable
+
+    // FlexIO PIN 13 In 14 Out
+    {
+        static const Flexio_Timer_Config_t SENTTransmitConfig = {
+            .TimerID = 1,
+
+            .TriggerSourceType = FLEXIO_TRIGGER_SOURCE_INTERNAL,
+            .TriggerSource = TIMER_TRIGGER_INTERNAL_TIMER(1),
+            .TriggerPolarity = FLEXIO_TRIGGER_POLARITY_HIGH,
+
+            .PinNumber = OUTPUT_PIN,
+            .PinOutType = FLEXIO_PIN_CONFIG_OUTPUT,
+            .PinPolarity = FLEXIO_PIN_POLARITY_LOW,
+            .UseNextPinForInput = false,
+
+            .OneShot = true,
+            .TimerMode = FLEXIO_TIMER_MODE_DISABLED,
+
+            .TimerOutput = FLEXIO_TIMER_INITOUT_ONE,
+            .TimerDecrement = TIMER_DECREMENT_FLEXIO_DIV_256,
+            .TimerReset = FLEXIO_TIMER_RESET_NEVER,
+            .TimerDisable = FLEXIO_TIMER_DISABLE_TIM_CMP,
+            .TimerEnable = FLEXIO_TIMER_ENABLE_ALWAYS,
+            .TimerStop = FLEXIO_TIMER_STOP_BIT_DISABLED,
+            .TimerStartBit = FLEXIO_TIMER_START_BIT_DISABLED,
+        };
+        Flexio_Timer_Init(&SENTTransmitConfig, -1U);
+        NopDelay(100000); // Wait for a while to ensure the system is stable
+
+#define TICK_STEP (8)
+#define MAX_TICK_STEP (256 / 28)
+#if (TICK_STEP > MAX_TICK_STEP)
+#error TICK_STEP too big
+#endif
+
+        for (int index = -1; index < 17; ++index)
+        {
+
+            Flexio_Pins_ToggleOutput = BIT(DEBUG_PIN);
+
+            if (index & ~0xFF) {
+                Flexio_Timer_Compare(1) = 0x1C1C * TICK_STEP;
+            } else {
+                Flexio_Timer_Compare(1) = (((4 + index - 1) << 8) | 0x8) * TICK_STEP; // Set the compare value for the second timer
+            }
+			Flexio_Timer_Status = BIT(1) | BIT(0);
+            Flexio_Timer_SetMode(SENTTransmitConfig.TimerID, FLEXIO_TIMER_MODE_8BIT_PWM);
+
+            while ((Flexio_Timer_Status & (BIT(1) | BIT(1))) == 0)
+            {
+                __asm("NOP");
+            }
+
+        }
+
+        Flexio_Pins_SetOutput = BIT(DEBUG_PIN);
+        Flexio_Timer_SetMode(SENTTransmitConfig.TimerID, FLEXIO_TIMER_MODE_DISABLED);
+
+        for (;;)
+        {
+        }
+    }
+
+    for (;;)
+        ;
+}
+
+/** @} */

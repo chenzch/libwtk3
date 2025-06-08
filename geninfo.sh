@@ -84,6 +84,10 @@ if FindModule "Wkpu"; then
     echo "#include \"Wkpu_Ip.h\""
 fi
 
+if FindModule "Rm"; then
+    echo "#include \"CDD_Rm.h\""
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "#include \"Crypto_43_HSE.h\""
     echo "#include \"Crypto_43_HSE_Util.h\""
@@ -110,7 +114,7 @@ echo "#include \"Devassert.h\""
 echo "#endif /* #if defined(DEBUG_ASSERT) */"
 echo
 echo "// Initialization"
-echo "static void wtk3_init(void) {"
+echo "void wtk3_init(void) {"
 # Initialization processing
 if FindModule "BaseNXP"; then
     echo "    OsIf_SuspendAllInterrupts();"
@@ -398,6 +402,15 @@ if FindModule "Wkpu"; then
     done
     echo "    }"
 
+fi
+
+if FindModule "Rm"; then
+    Rm_Parameter="NULL_PTR"
+    if FileExist "generate/include/CDD_Rm_*fg.h"; then
+        Rm_Parameter=$(grep -h 'extern const Rm_ConfigType .*;' generate/include/CDD_Rm_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        Rm_Parameter="&$Rm_Parameter"
+    fi
+    echo "    Rm_Init($Rm_Parameter);"
 fi
 
 if FindModule "Crypto_43_HSE"; then
