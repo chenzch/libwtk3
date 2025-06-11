@@ -2,6 +2,8 @@
 
 MexFile="$1"
 
+BaseRoot="$(dirname "$MexFile")"
+
 FindModule() {
     local pattern="<instance name=\\\"$1\\\""
     grep -q "$pattern" "$MexFile"
@@ -107,11 +109,9 @@ fi
 
 echo "#include \"libwtk3.h\""
 echo
-echo "#define DEBUG_ASSERT"
-echo
-echo "#if defined(DEBUG_ASSERT)"
+echo "#if !defined(NDEBUG)"
 echo "#include \"Devassert.h\""
-echo "#endif /* #if defined(DEBUG_ASSERT) */"
+echo "#endif /* #if !defined(NDEBUG) */"
 echo
 echo "// Initialization"
 echo "void wtk3_init(void) {"
@@ -123,18 +123,18 @@ fi
 
 if FindModule "Mcu"; then
     McuConfig="NULL_PTR"
-    if FileExist "generate/include/Mcu_*fg.h"; then
-        McuConfig=$(grep -h '^extern const Mcu_ConfigType .*;' generate/include/Mcu_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Mcu_*fg.h"; then
+        McuConfig=$(grep -h '^extern const Mcu_ConfigType .*;' $BaseRoot/generate/include/Mcu_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         McuConfig="&$McuConfig"
     fi
     ClockConfig="0"
-    if FileExist "generate/include/Mcu_*fg.h"; then
-        ClockConfig=$(grep -h '#define .* ((Mcu_ClockType)0U)' generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
+    if FileExist "$BaseRoot/generate/include/Mcu_*fg.h"; then
+        ClockConfig=$(grep -h '#define .* ((Mcu_ClockType)0U)' $BaseRoot/generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
         ClockConfig="$ClockConfig"
     fi
     ModeConfig="0"
-    if FileExist "generate/include/Mcu_*fg.h"; then
-        ModeConfig=$(grep -h '#define .* ((Mcu_ModeType)0U)' generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
+    if FileExist "$BaseRoot/generate/include/Mcu_*fg.h"; then
+        ModeConfig=$(grep -h '#define .* ((Mcu_ModeType)0U)' $BaseRoot/generate/include/Mcu_*fg.h | awk '{ print $2 }' | head -n 1);
         ModeConfig="$ModeConfig"
     fi
     echo "    /* Initialize the Mcu driver */
@@ -154,22 +154,22 @@ if FindModule "Mcu"; then
 "
 else
     Init_Parameter="NULL_PTR"
-    if FileExist "generate/include/Clock_Ip_*fg.h"; then
-        Init_Parameter=$(grep -h '^extern const Clock_Ip_ClockConfigType .*\[\];' generate/include/Clock_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Clock_Ip_*fg.h"; then
+        Init_Parameter=$(grep -h '^extern const Clock_Ip_ClockConfigType .*\[\];' $BaseRoot/generate/include/Clock_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
         Init_Parameter="&$Init_Parameter[0]"
     fi
     echo "    {
         Clock_Ip_StatusType status = Clock_Ip_Init($Init_Parameter);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((Clock_Ip_StatusType)CLOCK_IP_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */
+#endif /* #if !defined(NDEBUG) */
     }"
 fi
 
 if FindModule "Port"; then
     PortConfig="NULL_PTR"
-    #if FileExist "generate/include/Port_*fg.h"; then
-    #    PortConfig=$(grep -h '^extern const Port_ConfigType .*;' generate/include/Port_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    #if FileExist "$BaseRoot/generate/include/Port_*fg.h"; then
+    #    PortConfig=$(grep -h '^extern const Port_ConfigType .*;' $BaseRoot/generate/include/Port_*fg.h | tr ';' ' ' | awk '{ print $4 }');
     #    PortConfig="&$PortConfig"
     #fi
     echo "#if (STD_ON == PORT_PRECOMPILE_SUPPORT)
@@ -178,13 +178,13 @@ if FindModule "Port"; then
     Port_Init($PortConfig);
 #endif /* (STD_ON == PORT_PRECOMPILE_SUPPORT) */
 "
-    if grep -q '{ (uint16)4, PORT_SIUL2_0_U8 },' generate/src/Port_*fg.c; then
+    if grep -q '{ (uint16)4, PORT_SIUL2_0_U8 },' $BaseRoot/generate/src/Port_*fg.c; then
         echo "    // Check unused PTA4 PIN 4 (SWD_DIO)"
     fi
-    if grep -q '{ (uint16)68, PORT_SIUL2_0_U8 },' generate/src/Port_*fg.c; then
+    if grep -q '{ (uint16)68, PORT_SIUL2_0_U8 },' $BaseRoot/generate/src/Port_*fg.c; then
         echo "    // Check unused PTC4 PIN 68 (SWD_CLK)"
     fi
-    if grep -q '{ (uint16)5, PORT_SIUL2_0_U8 },' generate/src/Port_*fg.c; then
+    if grep -q '{ (uint16)5, PORT_SIUL2_0_U8 },' $BaseRoot/generate/src/Port_*fg.c; then
         echo "    // Check unused PTA5 PIN 5 (RESET_b)"
     fi
 else
@@ -271,13 +271,13 @@ else
         echo "        };
         Siul2_Port_DisableUnusedPins(ARRAY_SIZE(unusedPins), &unusedPins[0]);
     }"
-        for numval in $(grep -h '^#define NUM_OF_CONFIGURED_PINS_' board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
-            Array_Name=$(grep "\[$numval\]" board/Siul2_Port_Ip_Cfg.h | tr '[' ' ' | awk ' { print $4 }')
+        for numval in $(grep -h '^#define NUM_OF_CONFIGURED_PINS_' $BaseRoot/board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
+            Array_Name=$(grep "\[$numval\]" $BaseRoot/board/Siul2_Port_Ip_Cfg.h | tr '[' ' ' | awk ' { print $4 }')
             echo "    {
         Siul2_Port_Ip_PortStatusType status = Siul2_Port_Ip_Init($numval, &$Array_Name[0]);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((Siul2_Port_Ip_PortStatusType)SIUL2_PORT_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */
+#endif /* #if !defined(NDEBUG) */
     }"
         done
     fi
@@ -285,16 +285,16 @@ fi
 
 if FindModule "Siul2_Icu"; then
     IcuConfig="NULL_PTR"
-    if FileExist "generate/include/Siul2_Icu_Ip_*fg.h"; then
-        IcuConfig=$(grep -h 'extern const Siul2_Icu_Ip_ConfigType .*;' generate/include/Siul2_Icu_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Siul2_Icu_Ip_*fg.h"; then
+        IcuConfig=$(grep -h 'extern const Siul2_Icu_Ip_ConfigType .*;' $BaseRoot/generate/include/Siul2_Icu_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         IcuConfig="&$IcuConfig"
     fi
     echo "    {
         Siul2_Icu_Ip_StatusType status = Siul2_Icu_Ip_Init(0, $IcuConfig);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((Siul2_Icu_Ip_StatusType)SIUL2_ICU_IP_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */"
-    for file in generate/src/Siul2_Icu_Ip_*fg.c; do
+#endif /* #if !defined(NDEBUG) */"
+    for file in $BaseRoot/generate/src/Siul2_Icu_Ip_*fg.c; do
         if [ -f "$file" ]; then
             ChannelName=$(grep -A 1 "Siul2 HW Module and Channel used by the Icu channel" "$file" | grep -v "Siul2 HW Module and Channel used by the Icu channel" | grep -oE '[0-9]+')
             echo "        Siul2_Icu_Ip_EnableInterrupt(0, $ChannelName);
@@ -306,37 +306,73 @@ fi
 
 if FindModule "POWER"; then
     Power_Parameter="NULL_PTR"
-    if FileExist "generate/include/Power_Ip_*fg.h"; then
-        Power_Parameter=$(grep -h '^extern const Power_Ip_HwIPsConfigType .*;' generate/include/Power_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Power_Ip_*fg.h"; then
+        Power_Parameter=$(grep -h '^extern const Power_Ip_HwIPsConfigType .*;' $BaseRoot/generate/include/Power_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         Power_Parameter="&$Power_Parameter"
     fi
     Mode_Parameter="NULL_PTR"
-    if FileExist "generate/include/Power_Ip_*fg.h"; then
-        Mode_Parameter=$(grep -h '^extern const Power_Ip_ModeConfigType .*\[\];' generate/include/Power_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Power_Ip_*fg.h"; then
+        Mode_Parameter=$(grep -h '^extern const Power_Ip_ModeConfigType .*\[\];' $BaseRoot/generate/include/Power_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
         Mode_Parameter="&$Mode_Parameter[0]"
     fi
     echo "    Power_Ip_Init($Power_Parameter);"
     echo "    Power_Ip_SetMode($Mode_Parameter);"
+    echo "    switch (Power_Ip_GetResetReason()) {
+    case MCU_POWER_ON_RESET:           /**< @brief Power on reset event. RGM_DES[F_DR0]. */
+    case MCU_FCCU_FTR_RESET:           /**< @brief FCCU failure to react. RGM_DES[F_DR3]. */
+    case MCU_STCU_URF_RESET:           /**< @brief STCU unrecoverable fault. RGM_DES[F_DR4]. */
+    case MCU_MC_RGM_FRE_RESET:         /**< @brief Functional reset escalation. RGM_DES[F_DR6]. */
+    case MCU_FXOSC_FAIL_RESET:         /**< @brief FXOSC failure. RGM_DES[F_DR8]. */
+    case MCU_PLL_LOL_RESET:            /**< @brief PLL_LOL and related PLL loss of lock. RGM_DES[F_DR9]. */
+    case MCU_CORE_CLK_FAIL_RESET:      /**< @brief CORE_CLK_FAIL and related Core clock failure. RGM_DES[F_DR10]. */
+    case MCU_AIPS_PLAT_CLK_FAIL_RESET: /**< @brief AIPS_PLAT_CLK failure. RGM_DES[F_DR12]. */
+    case MCU_HSE_CLK_FAIL_RESET:       /**< @brief HSE_CLK failure. RGM_DES[F_DR14]. */
+    case MCU_SYS_DIV_FAIL_RESET:       /**< @brief System clock dividers alignment failure. RGM_DES[F_DR15]. */
+    case MCU_CM7_CORE_CLK_FAIL_RESET:  /**< @brief CM7_CORE_CLK Failure. RGM_DES[F_DR16]. */
+    case MCU_HSE_TMPR_RST_RESET:       /**< @brief HSE_B tamper detect reset. RGM_DES[F_DR17]. */
+    case MCU_HSE_SNVS_RST_RESET:       /**< @brief HSE_B SNVS tamper detection. RGM_DES[F_DR18]. */
+    case MCU_SW_DEST_RESET:            /**< @brief Software destructive reset. RGM_DES[F_DR29]. */
+    case MCU_DEBUG_DEST_RESET:         /**< @brief Debug destructive reset. RGM_DES[F_DR30]. */
+    case MCU_F_EXR_RESET:              /**< @brief Software destructive reset. RGM_FES[F_FR0]. */
+    case MCU_FCCU_RST_RESET:           /**< @brief FCCU Reset Reaction. RGM_FES[F_FR3]. */
+    case MCU_ST_DONE_RESET:            /**< @brief Self-Test Done. RGM_FES[F_FR4]. */
+    case MCU_SWT0_RST_RESET:           /**< @brief SWT0 Timeout. RGM_FES[F_FR6]. */
+    case MCU_SWT1_RST_RESET:           /**< @brief SWT1 Timeout. RGM_FES[F_FR7]. */
+    case MCU_SWT2_RST_RESET:           /**< @brief SWT2 Timeout. RGM_FES[F_FR8]. */
+    case MCU_JTAG_RST_RESET:           /**< @brief JTAG reset. RGM_FES[F_FR9]. */
+    case MCU_SWT3_RST_RESET:           /**< @brief SWT3 Timeout. RGM_FES[F_FR10].*/
+    case MCU_PLL_AUX_RESET:            /**< @brief PLL_AUX_CLK failure. RGM_FES[F_FR12].*/
+    case MCU_HSE_SWT_RST_RESET:        /**< @brief HSE_B SWT timeout. RGM_FES[F_FR16]. */
+    case MCU_HSE_BOOT_RST_RESET:       /**< @brief HSE_B boot reset. RGM_FES[F_FR20]. */
+    case MCU_SW_FUNC_RESET:            /**< @brief Software functional reset. RGM_FES[F_FR29]. */
+    case MCU_DEBUG_FUNC_RESET:         /**< @brief Debug functional reset. RGM_FES[F_FR30]. */
+    case MCU_WAKEUP_REASON:            /**< @brief Wake-up event detected. */
+    case MCU_NO_RESET_REASON:          /**< @brief No reset reason found */
+    case MCU_MULTIPLE_RESET_REASON:    /**< @brief More than one reset events are logged except "Power on event" */
+    case MCU_RESET_UNDEFINED:          /**< @brief Undefined reset source. */
+    default:
+        break;
+	}"
 fi
 
 if FindModule "Dma_Ip"; then
     Dma_Parameter="NULL_PTR"
-    if FileExist "generate/include/Dma_Ip_*fg.h"; then
-        Dma_Parameter=$(grep -h '^extern const Dma_Ip_InitType .*;' generate/include/Dma_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Dma_Ip_*fg.h"; then
+        Dma_Parameter=$(grep -h '^extern const Dma_Ip_InitType .*;' $BaseRoot/generate/include/Dma_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         Dma_Parameter="&$Dma_Parameter"
     fi
     echo "    {
         Dma_Ip_ReturnType status = Dma_Ip_Init($Dma_Parameter);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((Dma_Ip_ReturnType)DMA_IP_STATUS_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */
+#endif /* #if !defined(NDEBUG) */
     }"
 fi
 
 if FindModule "Rm"; then
     Rm_Parameter="NULL_PTR"
-    if FileExist "generate/include/CDD_Rm_*fg.h"; then
-        Rm_Parameter=$(grep -h 'extern const Rm_ConfigType .*;' generate/include/CDD_Rm_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/CDD_Rm_*fg.h"; then
+        Rm_Parameter=$(grep -h 'extern const Rm_ConfigType .*;' $BaseRoot/generate/include/CDD_Rm_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         Rm_Parameter="&$Rm_Parameter"
     fi
     echo "    Rm_Init($Rm_Parameter);"
@@ -344,35 +380,35 @@ fi
 
 if FindModule "Flexio_Mcl_Ip"; then
     Flexio_Parameter="NULL_PTR"
-    if FileExist "generate/include/Flexio_Mcl_Ip_*fg.h"; then
-        Flexio_Parameter=$(grep -h '^extern const Flexio_Ip_InstanceConfigType .*;' generate/include/Flexio_Mcl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Flexio_Mcl_Ip_*fg.h"; then
+        Flexio_Parameter=$(grep -h '^extern const Flexio_Ip_InstanceConfigType .*;' $BaseRoot/generate/include/Flexio_Mcl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         Flexio_Parameter="&$Flexio_Parameter"
     fi
     echo "    {
         Flexio_Ip_CommonStatusType status = Flexio_Mcl_Ip_InitDevice($Flexio_Parameter);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((Flexio_Ip_CommonStatusType)FLEXIO_IP_COMMON_STATUS_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */
+#endif /* #if !defined(NDEBUG) */
     }"
 fi
 
 if FindModule "Lpuart_Uart"; then
-    for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+    for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' $BaseRoot/generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
         echo "    Lpuart_Uart_Ip_Init(${instance/Lpuart_Uart_Ip_xHwConfigPB_/}, &$instance);"
     done
 fi
 
 if FindModule "C40_Ip"; then
     C40_Parameter="NULL_PTR"
-    if FileExist "generate/include/C40_Ip_*fg.h"; then
-        C40_Parameter=$(grep -h 'extern const C40_Ip_ConfigType .*;' generate/include/C40_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/C40_Ip_*fg.h"; then
+        C40_Parameter=$(grep -h 'extern const C40_Ip_ConfigType .*;' $BaseRoot/generate/include/C40_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         C40_Parameter="&$C40_Parameter"
     fi
     echo "    {
         C40_Ip_StatusType status = C40_Ip_Init($C40_Parameter);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */
+#endif /* #if !defined(NDEBUG) */
     }"
 fi
 
@@ -383,21 +419,21 @@ fi
 
 if FindModule "Wkpu"; then
     WkpuConfig="NULL_PTR"
-    if FileExist "generate/include/Wkpu_Ip_*fg.h"; then
-        WkpuConfig=$(grep -h 'extern const Wkpu_Ip_IrqConfigType .*;' generate/include/Wkpu_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/Wkpu_Ip_*fg.h"; then
+        WkpuConfig=$(grep -h 'extern const Wkpu_Ip_IrqConfigType .*;' $BaseRoot/generate/include/Wkpu_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         WkpuConfig="&$WkpuConfig"
     fi
     echo "    {
         Wkpu_Ip_StatusType status = Wkpu_Ip_Init(0, $WkpuConfig);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((Wkpu_Ip_StatusType)WKPU_IP_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */"
-    for file in generate/src/Wkpu_Ip_*fg.c; do
+#endif /* #if !defined(NDEBUG) */"
+    for file in $BaseRoot/generate/src/Wkpu_Ip_*fg.c; do
         if [ -f "$file" ]; then
             ChannelName=$(grep -A 1 "Wkpu HW Channel used by the Icu channel" "$file" | grep -v "Wkpu HW Channel used by the Icu channel" | grep -oE '[0-9]+')
-            echo "        Wkpu_Ip_EnableInterrupt(0, $ChannelName);
-        Wkpu_Ip_EnableNotification($ChannelName);
-        Wkpu_Ip_GetInputState(0, $ChannelName);"
+            echo "        Wkpu_Ip_GetInputState(0, $ChannelName);
+        Wkpu_Ip_EnableInterrupt(0, $ChannelName);
+        Wkpu_Ip_EnableNotification($ChannelName);"
         fi
     done
     echo "    }"
@@ -406,8 +442,8 @@ fi
 
 if FindModule "Rm"; then
     Rm_Parameter="NULL_PTR"
-    if FileExist "generate/include/CDD_Rm_*fg.h"; then
-        Rm_Parameter=$(grep -h 'extern const Rm_ConfigType .*;' generate/include/CDD_Rm_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    if FileExist "$BaseRoot/generate/include/CDD_Rm_*fg.h"; then
+        Rm_Parameter=$(grep -h 'extern const Rm_ConfigType .*;' $BaseRoot/generate/include/CDD_Rm_*fg.h | tr ';' ' ' | awk '{ print $4 }');
         Rm_Parameter="&$Rm_Parameter"
     fi
     echo "    Rm_Init($Rm_Parameter);"
@@ -422,18 +458,18 @@ else
         Hse_Status status;
         do {
             status.status = Hse_Ip_GetHseStatus(0);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
             DevAssert(status.B.InitOK);
             DevAssert(status.B.RNGInitOK);
-#endif /* #if defined(DEBUG_ASSERT) */
+#endif /* #if !defined(NDEBUG) */
         } while(!(status.B.InitOK && status.B.RNGInitOK));
 
         static Hse_Ip_MuStateType HseIp_MuState[HSE_IP_NUM_OF_MU_INSTANCES];
         for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; InstID++) {
             Hse_Ip_StatusType status = Hse_Ip_Init(InstID, &HseIp_MuState[InstID]);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
             DevAssert((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */
+#endif /* #if !defined(NDEBUG) */
         }
         Hse_Task_Init();
     }"
@@ -452,15 +488,15 @@ if FindModule "Platform"; then
 else
     if FindModule "IntCtrl_Ip"; then
         Init_Parameter="NULL_PTR"
-        if FileExist "generate/include/IntCtrl_Ip_*fg.h"; then
-            Init_Parameter=$(grep -h '^extern const IntCtrl_Ip_CtrlConfigType .*;' generate/include/IntCtrl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        if FileExist "$BaseRoot/generate/include/IntCtrl_Ip_*fg.h"; then
+            Init_Parameter=$(grep -h '^extern const IntCtrl_Ip_CtrlConfigType .*;' $BaseRoot/generate/include/IntCtrl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
             Init_Parameter="&$Init_Parameter"
         fi
         echo "    {
         IntCtrl_Ip_StatusType status = IntCtrl_Ip_Init($Init_Parameter);
-#if defined(DEBUG_ASSERT)
+#if !defined(NDEBUG)
         DevAssert((IntCtrl_Ip_StatusType)INTCTRL_IP_STATUS_SUCCESS == status);
-#endif /* #if defined(DEBUG_ASSERT) */"
+#endif /* #if !defined(NDEBUG) */"
         for i in $(grep "ISR(.*);" RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }'); do
             echo
             echo "        // IntCtrl_Ip_InstallHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
@@ -478,12 +514,14 @@ if FindModule "BaseNXP"; then
 fi
 
 if FindModule "Dio"; then
-    for port in $(grep -h '^#define DioConf_DioChannel_DioChannel_' generate/include/Dio_*fg.h | awk '{ print $2 }'); do
+    for port in $(grep -h '^#define DioConf_DioChannel_DioChannel_' $BaseRoot/generate/include/Dio_*fg.h | awk '{ print $2 }'); do
         echo "    Dio_WriteChannel($port, STD_HIGH);"
     done
 else
     if FindModule "Siul2_Dio"; then
-        echo "    Siul2_Dio_Ip_WritePin(SIUL2_DIO_PIN(A, 16), 1);"
+        for NamedPin in $(grep -h '^#define .*_PIN ' $BaseRoot/board/Siul2_Port_Ip_Cfg.h | tr '_' ' ' | awk '{ print $2 }'); do
+            echo "    Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN($NamedPin), 1);"
+        done
     fi
 fi
 

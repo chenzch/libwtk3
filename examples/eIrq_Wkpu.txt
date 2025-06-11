@@ -1,0 +1,135 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 4.0.0
+* Build Version : S32K3_RTD_4_0_0_HF02_D2407_ASR_REL_4_7_REV_0000_20240725
+*
+* Copyright 2020 - 2024 NXP
+*
+* NXP Confidential. This software is owned or controlled by NXP and may only be
+* used strictly in accordance with the applicable license terms. By expressly
+* accepting such terms or by downloading, installing, activating and/or otherwise
+* using the software, you are agreeing that you have read, and that you agree to
+* comply with and are bound by, such license terms. If you do not agree to be
+* bound by the applicable license terms, then you may not retain, install,
+* activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+#include "Mcal.h"
+#include "OsIf.h"
+#include "Clock_Ip.h"
+#include "Siul2_Port_Ip.h"
+#include "Tspc_Port_Ip.h"
+#include "Siul2_Dio_Ip.h"
+#include "Siul2_Icu_Ip.h"
+#include "Power_Ip.h"
+#include "Wkpu_Ip.h"
+#include "IntCtrl_Ip.h"
+
+volatile bool enterSleep;
+
+#define SIUL2_DIO_NAMED_PIN(NAME) NAME##_PORT, NAME##_PIN
+
+static inline void NopDelay(uint32_t count) {
+    register uint32_t Count = count;
+    while (Count--) {
+        __asm("nop");
+    }
+}
+
+static void setColor(uint8_t R, uint8_t G, uint8_t B)
+{
+	Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN(LEDR), R);
+	Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN(LEDG), G);
+	Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN(LEDB), B);
+}
+
+void KeyPress(void)
+{
+	enterSleep = true;
+}
+
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+	/* Write your code here */
+	OsIf_SuspendAllInterrupts();
+
+	enterSleep = false;
+
+	OsIf_Init(NULL_PTR);
+	Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
+	Siul2_Port_Ip_Init(NUM_OF_CONFIGURED_PINS_PortContainer_0_BOARD_InitPeripherals, &g_pin_mux_InitConfigArr_PortContainer_0_BOARD_InitPeripherals[0]);
+
+	Siul2_Icu_Ip_Init(0, &Siul2_Icu_Ip_0_Config_PB);
+	Siul2_Icu_Ip_EnableInterrupt(0, 13);
+	Siul2_Icu_Ip_EnableNotification(0, 13);
+
+	Power_Ip_Init(&Power_Ip_HwIPsConfigPB);
+
+	Wkpu_Ip_Init(0, &Wkpu_Ip_Config_PB);
+
+	if (MCU_WAKEUP_REASON == Power_Ip_GetResetReason())
+	{
+		if (Wkpu_Ip_GetInputState(0, 42))
+		{
+			setColor(0, 1, 0);
+		}
+		else
+		{
+			setColor(1, 0, 0);
+		}
+		for (;;)
+			;
+	}
+
+	Wkpu_Ip_EnableInterrupt(0, 42);
+	Wkpu_Ip_EnableNotification(42);
+
+	IntCtrl_Ip_Init(&IntCtrlConfig_0);
+
+	OsIf_ResumeAllInterrupts();
+
+	for (int index = 0; index < 3; ++index)
+	{
+		for (int count = 0; count < 10000; ++count)
+		{
+			setColor(index == 0 ? 1 : 0, index == 1 ? 1 : 0, index == 2 ? 1 : 0);
+			NopDelay(100);
+			setColor(0, 0, 0);
+			NopDelay(1900);
+		}
+	}
+
+	setColor(0, 0, 0);
+
+	for (;;)
+	{
+		if (enterSleep)
+		{
+			setColor(1, 1, 1);
+			Power_Ip_SetMode(&Power_Ip_aModeConfigPB[0]);
+		}
+	}
+}
+
+/** @} */
