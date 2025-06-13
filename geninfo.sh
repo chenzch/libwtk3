@@ -322,39 +322,34 @@ if FindModule "IPV_Mpu_M7_Ip"; then
                     line_count=$((line_count + 1))
 
                     if [ $line_count -eq 9 ]; then
-                        # 处理第1行：十进制显示，占2位，不足补空格
                         num1=$(echo "${buffer[0]}" | sed 's/[^0-9]*//g')
                         printf "    /* Region %2d, " "$num1"
 
-                        # 处理第2行：0x08X格式
                         num2=$(echo "${buffer[1]}" | sed 's/[^0-9]*//g')
                         printf "0x%08X - " "$num2"
 
-                        # 处理第3行：0x08X格式
                         num3=$(echo "${buffer[2]}" | sed 's/[^0-9]*//g')
 
-                        # 计算log2(num3 - num2 + 1) - 1
                         size=$((num3 - num2 + 1))
                         sizenum=0
+                        num3_calc=1
                         for i in {0..31}; do
+                            num3_calc=$((num3_calc * 2))
                             if (( (2 << i) >= size )); then
                                 sizenum=$i
                                 break
                             fi
                         done
 
+                        num3_calc=$((num3_calc - 1))
+
                         if ((sizenum == 0)); then
                             printf "0x%08X, Err, " "$num3"
                         else
-                            num3_calc=$((num2 + (2 << sizenum) - 1))
                             printf "0x%08X, " "$num3_calc"
                             printf " %-2d, " "$sizenum"
                         fi
 
-
-                        # 处理第4-7行：去掉尾部逗号
-                        # 去掉buffer[3]最后一个逗号以及之后的所有内容
-                        # 处理第4行：去掉MPU_M7_和尾部逗号，补齐23字符
                         for i in {3..6}; do
                             buffer[$i]=$(echo "${buffer[$i]}" | sed 's/MPU_M7_//;s/,.*$//')
                         done
@@ -367,11 +362,9 @@ if FindModule "IPV_Mpu_M7_Ip"; then
                             printf "%-36s, %-36s, "
                         fi
 
-                        # 处理第8行：十进制显示
                         num8=$(echo "${buffer[7]}" | sed 's/[^0-9]*//g')
                         printf "0b%08d, " "$(echo "obase=2; $num8" | bc | awk '{printf "%08d", $0}')"
 
-                        # 处理第9行：如果包含FALSE则输出FALSE，否则输出TRUE
                         if [[ "${buffer[8]}" =~ FALSE ]]; then
                             printf "FALSE    "
                         else
@@ -380,7 +373,6 @@ if FindModule "IPV_Mpu_M7_Ip"; then
 
                         printf " */\n"
 
-                        # 重置缓冲区和计数器
                         buffer=()
                         line_count=0
                     fi
