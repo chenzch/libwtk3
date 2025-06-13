@@ -1,0 +1,175 @@
+
+MPU Setting for HSE Installer
+    /* MPU Region Configuration in ./generate/src/Mpu_M7_Ip_Cfg.c */
+    /*        ID,  StartAddr,  EndAddress,Size, MemoryType              , AccessRights            , Outer Cache Policy                  , Inner Cache Policy                  , SubRegion , Shareable */
+    /* Region  0, 0x00000000 - 0xFFFFFFFF,  31, MEM_STRONG_ORDER        , PRIV_UNPRIV_NONE        , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region  1, 0x00000000 - 0x0000FFFF,  15, MEM_STRONG_ORDER        , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region  2, 0x00400000 - 0x007FFFFF,  21, MEM_NORMAL_IO_NO_CACHE  , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region  3, 0x10000000 - 0x1001FFFF,  16, MEM_DEVICE_SHARED       , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, TRUE      */
+    /* Region  4, 0x20000000 - 0x2001FFFF,  16, MEM_STRONG_ORDER        , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region  5, 0x20400000 - 0x2043FFFF,  17, MEM_NORMAL_CACHEABLE    , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_W_BACK_WR_ALLOCATE     , CACHE_POLICY_W_THROUGH_NO_W_ALLOCATE, 0b00000000, FALSE     */
+    /* Region  6, 0x20430000 - 0x2043FFFF,  15, MEM_NORMAL_IO_NO_CACHE  , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region  7, 0x20440000 - 0x20443FFF,  13, MEM_DEVICE_SHARED       , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region  8, 0x40000000 - 0x401FFFFF,  20, MEM_DEVICE_SHARED       , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region  9, 0x40200000 - 0x403FFFFF,  20, MEM_DEVICE_SHARED       , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+    /* Region 10, 0x1B000000 - 0x1B001FFF,  12, MEM_NORMAL_IO_NO_CACHE  , PRIV_RWX_UNPRIV_RWX     , CACHE_POLICY_NO_CACHE               , CACHE_POLICY_NO_CACHE               , 0b00000000, FALSE     */
+
+
+MPU Setting for RTD default
+    /* MPU Region Configuration in ./generate/src/Mpu_M7_Ip_Cfg.c */
+    /*        ID,  StartAddr,  EndAddress,Size, MemoryType              , AccessRights        , Outer Inner Cache Policy , SubRegion , Shareable */
+    /* Region  0, 0x00000000 - 0xFFFFFFFF,  31, MEM_STRONG_ORDER        , PRIV_UNPRIV_NONE    ,                          , 0b00000000, TRUE      */
+    /* Region  1, ITCM_START -           ,  15, MEM_NORMAL_IO_NO_CACHE  , PRIV_RWX_UNPRIV_RWX ,                          , 0b00000000, FALSE     */
+    /* Region  2, ROM_CODE_S -           ,  19, MEM_NORMAL_IO_WR_BACK2  , PRIV_RX_UNPRIV_RX   ,                          , 0b00000000, FALSE     */
+    /* Region  2, ROM_CODE_S -           ,  20, MEM_NORMAL_IO_WR_BACK2  , PRIV_RX_UNPRIV_RX   ,                          , 0b00000000, FALSE     */
+    /* Region  2, ROM_CODE_S -           ,  21, MEM_NORMAL_IO_WR_BACK2  , PRIV_RX_UNPRIV_RX   ,                          , 0b00000000, FALSE     */
+    /* Region  3, ROM_DATA_S -           ,  17, MEM_NORMAL_IO_WR_BACK2  , PRIV_R_UNPRIV_R     ,                          , 0b00000000, FALSE     */
+    /* Region  4, 0x1B000000 - 0x1B001FFF,  12, MEM_NORMAL_IO_WR_BACK2  , PRIV_R_UNPRIV_R     ,                          , 0b00000000, FALSE     */
+    /* Region  5, DTCM_START -           ,  16, MEM_NORMAL_IO_NO_CACHE  , PRIV_RWX_UNPRIV_RWX ,                          , 0b00000000, FALSE     */
+    /* Region  6, SRAM_START -           ,    , MEM_NORMAL_IO_NO_CACHE  , PRIV_RWX_UNPRIV_RWX ,                          , 0b11000000, FALSE     */
+    /* Region  6, SRAM_START -           ,    , MEM_NORMAL_IO_WR_BACK2  , PRIV_RWX_UNPRIV_RWX ,                          , 0b00000000, FALSE     */
+    /* Region  6, DTCM_START -           ,    , MEM_NORMAL_IO_WR_BACK2  , PRIV_RWX_UNPRIV_RWX ,                          , 0b00000000, FALSE     */
+    /* Region  7, RAM_NO_CAC -           ,    , MEM_NORMAL_IO_NO_CACHE  , PRIV_RW_UNPRIV_RW   ,                          , 0b00000000, TRUE      */
+    /* Region  7, SRAM_START -           ,    , MEM_NORMAL_IO_NO_CACHE  , PRIV_RW_UNPRIV_RW   ,                          , 0b00000000, TRUE      */
+    /* Region  8, RAM_SHARE  -           ,    , MEM_NORMAL_IO_NO_CACHE  , PRIV_RW_UNPRIV_RW   ,                          , 0b00000000, TRUE      */
+    /* Region  9, 0x40000000 -           ,  22, MEM_STRONG_ORDER        , PRIV_RW_UNPRIV_RW   ,                          , 0b11000000, TRUE      */
+    /* Region 10, 0x40600000 -           ,  20, MEM_STRONG_ORDER        , PRIV_RW_UNPRIV_RW   ,                          , 0b00000000, TRUE      */
+    /* Region 11, 0x67000000 -           ,   9, MEM_STRONG_ORDER        , PRIV_RW_UNPRIV_RW   ,                          , 0b00000000, TRUE      */
+    /* Region 12, 0x68000000 -           ,  26, MEM_NORMAL_IO_WR_BACK2  , PRIV_RWX_UNPRIV_RWX ,                          , 0b00000000, FALSE     */
+    /* Region 13, 0xE0000000 -           ,  19, MEM_STRONG_ORDER        , PRIV_RW_UNPRIV_RW   ,                          , 0b00000000, TRUE      */
+    /* Region 14, ROM_CODE_S -           ,  20, MEM_NORMAL_IO_WR_BACK2  , PRIV_RX_UNPRIV_RX   ,                          , 0b00000000, FALSE     */
+    /* Region 14, ROM_CODE_S -           ,  21, MEM_NORMAL_IO_WR_BACK2  , PRIV_RX_UNPRIV_RX   ,                          , 0b00000000, FALSE     */
+    /* Region 15, 0x44000000 -           ,   9, MEM_STRONG_ORDER        , PRIV_RW_UNPRIV_RW   ,                          , 0b00000000, TRUE      */
+
+/*
+  Region  Description       Start                       End                                    Size[KB]  Type              Inner Cache Policy    Outer Cache Policy    Shareable    Executable    Privileged Access    Unprivileged Access
+--------  -------------     ----------                  ----------                           ----------  ----------------  --------------------  --------------------  -----------  ------------  -------------------  ---------------------
+       0  Whole memory map  0x00000000                  0xFFFFFFFF                              4194304  Strongly Ordered  None                  None                  Yes          No            No Access            No Access
+       1  ITCM              0x00000000                  0x0000FFFF                                   64  Strongly Ordered  None                  None                  Yes          Yes           Read/Write           No Access
+       2  Program Flash 1   0x40000000                  PFLASH SIZE                         PFLASH SIZE  Normal            Write-Back/Allocate   Write-Back/Allocate   No           Yes           Read-Only            Read-Only
+       3  Data Flash        0x10000000                  0x1003FFFF                                  256  Normal            Write-Back/Allocate   Write-Back/Allocate   No           No            Read-Only            Read-Only
+       4  UTEST             0x1B000000                  0x1B001FFF                                 8192  Normal            Write-Back/Allocate   Write-Back/Allocate   No           No            Read-Only            Read-Only
+       5  DTCM              0x20000000                  0x2001FFFF                                  128  Normal            None                  None                  No           Yes           Read/Write           Read/Write
+       6  SRAM CACHE        __RAM_CACHEABLE_START       __RAM_CACHEABLE_END        __RAM_CACHEABLE_SIZE  Normal            Write-Back/Allocate   Write-Back/Allocate   No           Yes           Read/Write           Read/Write
+       7  SRAM N-CACHE      __RAM_NO_CACHEABLE_START    __RAM_NO_CACHEABLE_END  __RAM_NO_CACHEABLE_SIZE  Normal            None                  None                  Yes          No            Read/Write           Read/Write
+       8  SRAM SHARED       __RAM_SHAREABLE_START       __RAM_SHAREABLE_END        __RAM_SHAREABLE_SIZE  Normal            None                  None                  Yes          No            Read/Write           Read/Write
+       9  AIPS_0/1/2        0x40000000                 0x405FFFFF                                  6144  Strongly ordered  None                  None                  Yes          No            Read/Write           Read/Write
+      10  AIPS_3            0x40600000                 0x407FFFFF                                  2048  Strongly ordered  None                  None                  Yes          No            Read/Write           Read/Write
+      11  QSPI Rx           0x67000000                 0x670003FF                                     1  Strongly ordered  None                  None                  Yes          No            Read/Write           Read/Write
+      12  QSPI AHB          0x68000000                 0x6FFFFFFF                                131072  Normal            Write-Back/Allocate   Write-Back/Allocate   No           Yes           Read/Write           Read/Write
+      13  PPB               0xE0000000                 0xE00FFFFF                                  1024  Strongly Ordered  None                  None                  Yes          No            Read/Write           Read/Write
+      14  Program Flash 2   0x00800000                 PFLASH SIZE                          PFLASH SIZE  Normal            Write-Back/Allocate   Write-Back/Allocate   No           Yes           Read-Only            Read-Only
+388   15  ACE               0x44000000                 0x440003FF                                     1  Strongly-ordered  None                  None                  Yes          No            Read/Write           Read/Write
+*/
+
+    https://developer.arm.com/documentation/dui0646/c/Cortex-M7-Peripherals/Optional-Memory-Protection-Unit/MPU-Region-Base-Address-Register?lang=en
+    rbar[0]=0x00000000UL;
+    https://developer.arm.com/documentation/dui0646/c/Cortex-M7-Peripherals/Optional-Memory-Protection-Unit/MPU-Region-Attribute-and-Size-Register?lang=en
+    rasr[0]=0x1004003FUL;
+
+    Region , BaseAddr, Bit 28 0x1000_0000, Bit 26:24 0x0700_0000, Bit 21:16 0x003F_0000, Bit 15:8 0x0000_FF00, Bit 5:1 0x0000_003E, Bit 0 0x1
+    0
+
+    /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: No, Privileged Access:RW, Unprivileged Access:RW */
+
+    rbar[1]=__INT_ITCM_START;
+    rasr[1]=0x0308001FUL;
+    rbar[2]=__ROM_CODE_START;
+#if defined(S32K311) || defined(S32K341) || defined(S32M276) || defined(S32K310) || defined(S32M274)
+    rasr[2]=0x070B0027UL; /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back. write and read allocate, Shareable: No, Privileged Access: Read-Only, Unprivileged Access: Read-Only */
+#elif defined(S32K342) || defined(S32K312) || defined(S32K322)
+    rasr[2]=0x070B0029UL; /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back. write and read allocate, Shareable: No, Privileged Access: Read-Only, Unprivileged Access: Read-Only */
+#else
+    rasr[2]=0x070B002BUL; /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back. write and read allocate, Shareable: No, Privileged Access: Read-Only, Unprivileged Access: Read-Only */
+#endif
+    /*Data flash which would extract from linker symbol*/
+    rbar[3]=(uint32)__ROM_DATA_START;
+    rasr[3]=0x160B0023UL; /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back. write and read allocate, Shareable: Yes, Privileged Access: Read-Only, Unprivileged Access: Read-Only */
+    rbar[4]=0x1B000000UL;
+    /* Size: 8KB, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back. write and read allocate, Shareable: Yes, Privileged Access: Read-Only, Unprivileged Access: Read-Only */
+    rasr[4]=0x160B0019UL;
+    rbar[5]=(uint32)__INT_DTCM_START;
+    rasr[5]=0x03080021UL; /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: No, Privileged Access:RW, Unprivileged Access:RW */
+#if defined(S32K396) || defined(S32K394) || defined(S32K344) || defined(S32K324) || defined(S32K314) || defined(S32K374)|| defined(S32K376)
+    rbar[6]=(uint32)__INT_SRAM_START;
+    /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back, write and read allocate, Shareable: No, Privileged Access:RW, Unprivileged Access:RW */
+    /* Disable subregion 7 & 8*/
+    rasr[6]=((uint32)0x030B0001UL)|(((uint32)__RAM_CACHEABLE_SIZE - 1) << 1)|(1<<15)|(1<<14);
+#else
+    rbar[6]=(uint32)__INT_SRAM_START;
+    /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back, write and read allocate, Shareable: No, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[6]=((uint32)0x030B0001UL)|(((uint32)__RAM_CACHEABLE_SIZE - 1) << 1);
+#endif
+    /* Limitation : TCM is not cacheable memory, the purpose is to expand the RAM size for low RAM derivatives. Used for cases like ccov testing,... */
+#ifdef EXTEND_LOWRAM_DERIVATIVES
+    #if defined(S32K310) || defined(S32K311) || defined(S32M274) || defined(S32M276)
+    rbar[6]=(uint32)__INT_DTCM_START;
+    /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back, write and read allocate, Shareable: No, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[6]=((uint32)0x030B0001UL)|(((uint32)__RAM_CACHEABLE_SIZE - 1) << 1);
+    #endif
+#endif
+    /*Ram non-cache section plus int result which is using for test report*/
+    rbar[7]=(uint32)__RAM_NO_CACHEABLE_START;
+    /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[7]= ((uint32)0x130C0001UL)|(((uint32)__RAM_NO_CACHEABLE_SIZE - 1) << 1);
+#ifdef EXTEND_LOWRAM_DERIVATIVES
+    #if defined(S32K310) || defined(S32K311) || defined(S32M274) || defined(S32M276)
+    /*Ram non-cache section plus int result which is using for test report*/
+    rbar[7]=(uint32)__INT_SRAM_START;
+    /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[7]= ((uint32)0x130C0001UL)|(((uint32)__RAM_NO_CACHEABLE_SIZE - 1) << 1);
+    #endif
+#endif
+    /*Ram shareable section*/
+    rbar[8]=(uint32)__RAM_SHAREABLE_START;
+    /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[8]=((uint32)0x130C0001UL)|(((uint32)__RAM_SHAREABLE_SIZE - 1) << 1);
+    /* Additional configuration for peripheral device*/
+
+    /*AIPS_0, AIPS_1, AIPS_2*/
+    rbar[9]=0x40000000UL;
+    /* Size: 6MB, Type: Strongly-ordered, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    /* Disable subregion 7 & 8*/
+    rasr[9]=((uint32)0x1304002DUL)|(1<<15)|(1<<14);
+
+    /*AIPS_3*/
+    rbar[10]=0x40600000UL;
+#if defined(S32K396) || defined(S32K394) || defined(S32K374) || defined(S32K376)
+    /* Size: 2MB, Type: Strongly-ordered, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[10]=0x13040029UL;
+#else
+    rasr[10]=0x0UL;
+#endif /* S32K39x */
+    /*QSPI Rx*/
+    rbar[11]=0x67000000UL;
+    /* Size: 128MB, Type: Strongly-ordered, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[11]=0x13040013UL;
+
+    /*QSPI AHB*/
+    rbar[12]=0x68000000UL;
+    /* Size: 128MB, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back, write and read allocate, Shareable: No, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[12]=0x030B0035UL;
+
+    /*Private Peripheral Bus*/
+    rbar[13]=0xE0000000UL;
+    /* Size: Normal, Type: Strongly-ordered, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[13]=0x13040027UL;
+
+    /* Program flash */
+    /* Note: Do not merge with MPU region 2 because of alignment with the size */
+    rbar[14]=(uint32)((uint32)__ROM_CODE_START + 0x400000UL);
+#if defined(S32K396) || defined(S32K376)
+    rasr[14]=0x070B0029UL; /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back. write and read allocate, Shareable: No, Privileged Access: Read-Only, Unprivileged Access: Read-Only */
+#elif defined(S32K358) || defined(S32K388) || defined(S32K328) || defined(S32K338) || defined(S32K348)
+    rasr[14]=0x070B002BUL; /* Size: import information from linker symbol, Type: Normal, Inner Cache Policy: Inner write-back, write and read allocate, Outer Cache Policy: Outer write-back. write and read allocate, Shareable: No, Privileged Access: Read-Only, Unprivileged Access: Read-Only */
+#else
+    rasr[14]=0UL;
+#endif
+    /*ACE region*/
+    rbar[15]=0x44000000UL;
+#if defined(S32K388)
+    /* Size: 1KB, Type: Strongly-ordered, Inner Cache Policy: None, Outer Cache Policy: None, Shareable: Yes, Privileged Access:RW, Unprivileged Access:RW */
+    rasr[15]=0x13040013UL;
+#else
+    rasr[15]=0UL;
+#endif
