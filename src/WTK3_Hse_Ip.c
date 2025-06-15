@@ -26,67 +26,48 @@
 #include "libwtk3.h"
 
 #define HSE_SRV_ID_INVALID (0)
-static struct {
-    bool           is_used;
-    Hse_Ip_ReqType request;
-} gHseRequests[MAX_HSE_TASK_NUM];
 
-#define CRYPTO_43_HSE_START_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
-#include "Crypto_43_HSE_MemMap.h"
+static uint32_t     gTaskCount  = 0;
+static pHSE_Context gHSEContext = NULL;
 
-static union {
-    hseAttrCapabilities_t Hse_AttrCapabilities;
-    hseAttrMUConfig_t     Hse_MuConfig;
-    hseAttrFwVersion_t    Hse_FwVersion;
-} gHseData[MAX_HSE_TASK_NUM];
-
-#define CRYPTO_43_HSE_STOP_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
-#include "Crypto_43_HSE_MemMap.h"
-
-#define CRYPTO_43_HSE_START_SEC_VAR_SHARED_CLEARED_UNSPECIFIED_NO_CACHEABLE
-#include "Crypto_43_HSE_MemMap.h"
-
-static hseSrvDescriptor_t gHseSrvDescriptor[MAX_HSE_TASK_NUM];
-
-#define CRYPTO_43_HSE_STOP_SEC_VAR_SHARED_CLEARED_UNSPECIFIED_NO_CACHEABLE
-#include "Crypto_43_HSE_MemMap.h"
-
-void Hse_Task_Init(void) {
-    for (Hse_Task_ID index = 0; index < MAX_HSE_TASK_NUM; index++) {
-        gHseRequests[index].is_used = false;
+void Hse_Task_Init(uint32_t TaskCount, pHSE_Context pHSEContext) {
+    gTaskCount  = TaskCount;
+    gHSEContext = pHSEContext;
+    for (Hse_Task_ID index = 0; index < gTaskCount; index++) {
+        gHSEContext[index].isUsed = false;
     }
 }
 
 Hse_Task_ID Hse_Task_GetFreeSlot(void) {
-    for (Hse_Task_ID index = 0; index < MAX_HSE_TASK_NUM; index++) {
-        if (!gHseRequests[index].is_used) {
-            gHseRequests[index].is_used    = true;
-            gHseSrvDescriptor[index].srvId = HSE_SRV_ID_INVALID;
+    for (Hse_Task_ID index = 0; index < gTaskCount; index++) {
+        if (!gHSEContext[index].isUsed) {
+            gHSEContext[index].isUsed              = true;
+            gHSEContext[index].SrvDescriptor.srvId = HSE_SRV_ID_INVALID;
             return index;
         }
     }
-    return MAX_HSE_TASK_NUM;
+    return gTaskCount;
 }
 
 void Hse_Task_Release(Hse_Task_ID Id) {
-    if (Id < MAX_HSE_TASK_NUM) {
-        gHseRequests[Id].is_used = false;
-        return;
+    if (Id < gTaskCount) {
+        gHSEContext[Id].isUsed = false;
     }
 }
 
 static hseSrvResponse_t Hse_Task_SyncRequestChannel(Hse_Task_ID Id, uint8_t u8MuInstance,
                                                     uint8_t u8MuChannel, uint32_t u32Timeout) {
-    if ((Id < MAX_HSE_TASK_NUM) && (gHseRequests[Id].is_used) &&
-        (gHseSrvDescriptor[Id].srvId != HSE_SRV_ID_INVALID)) {
+    if ((Id < gTaskCount) && (gHSEContext[Id].isUsed) &&
+        (gHSEContext[Id].SrvDescriptor.srvId != HSE_SRV_ID_INVALID)) {
+        Hse_Ip_ReqType request = {
+            .eReqType       = HSE_IP_REQTYPE_SYNC,
+            .pfCallback     = NULL,
+            .pCallbackParam = NULL,
+            .u32Timeout     = u32Timeout,
+        };
 
-        gHseRequests[Id].request.eReqType       = HSE_IP_REQTYPE_SYNC;
-        gHseRequests[Id].request.pfCallback     = NULL;
-        gHseRequests[Id].request.pCallbackParam = NULL;
-        gHseRequests[Id].request.u32Timeout     = u32Timeout;
-
-        return Hse_Ip_ServiceRequest(u8MuInstance, u8MuChannel, &gHseRequests[Id].request,
-                                     &gHseSrvDescriptor[Id]);
+        return Hse_Ip_ServiceRequest(u8MuInstance, u8MuChannel, &request,
+                                     &gHSEContext[Id].SrvDescriptor);
     }
     return HSE_SRV_RSP_GENERAL_ERROR;
 }
@@ -105,10 +86,11 @@ hseSrvResponse_t Hse_Task_SyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint
 }
 
 hseAttrMUConfig_t *Hse_GetMuConfig(Hse_Task_ID Id) {
-    if (Id < MAX_HSE_TASK_NUM) {
-        hseSrvDescriptor_t *pHseSrvDescriptor = &gHseSrvDescriptor[Id];
-        HOST_ADDR           RetVal            = HSE_PTR_TO_HOST_ADDR(&gHseData[Id].Hse_MuConfig);
-        pHseSrvDescriptor->srvId              = HSE_SRV_ID_SET_ATTR;
+    if (Id < gTaskCount) {
+        hseSrvDescriptor_t *pHseSrvDescriptor = &gHSEContext[Id].SrvDescriptor;
+        HOST_ADDR           RetVal = HSE_PTR_TO_HOST_ADDR(&gHSEContext[Id].Data.Hse_MuConfig);
+
+        pHseSrvDescriptor->srvId                     = HSE_SRV_ID_SET_ATTR;
         pHseSrvDescriptor->hseSrv.setAttrReq.attrId  = HSE_MU_CONFIG_ATTR_ID;
         pHseSrvDescriptor->hseSrv.setAttrReq.attrLen = sizeof(hseAttrMUConfig_t);
         pHseSrvDescriptor->hseSrv.setAttrReq.pAttr   = RetVal;
@@ -118,10 +100,11 @@ hseAttrMUConfig_t *Hse_GetMuConfig(Hse_Task_ID Id) {
 }
 
 hseAttrCapabilities_t *Hse_GetCapabilities(Hse_Task_ID Id) {
-    if (Id < MAX_HSE_TASK_NUM) {
-        hseSrvDescriptor_t *pHseSrvDescriptor = &gHseSrvDescriptor[Id];
-        HOST_ADDR           RetVal = HSE_PTR_TO_HOST_ADDR(&gHseData[Id].Hse_AttrCapabilities);
-        pHseSrvDescriptor->srvId   = HSE_SRV_ID_GET_ATTR;
+    if (Id < gTaskCount) {
+        hseSrvDescriptor_t *pHseSrvDescriptor = &gHSEContext[Id].SrvDescriptor;
+        HOST_ADDR RetVal = HSE_PTR_TO_HOST_ADDR(&gHSEContext[Id].Data.Hse_AttrCapabilities);
+
+        pHseSrvDescriptor->srvId                     = HSE_SRV_ID_GET_ATTR;
         pHseSrvDescriptor->hseSrv.getAttrReq.attrId  = HSE_CAPABILITIES_ATTR_ID;
         pHseSrvDescriptor->hseSrv.getAttrReq.attrLen = sizeof(hseAttrCapabilities_t);
         pHseSrvDescriptor->hseSrv.getAttrReq.pAttr   = RetVal;
@@ -131,10 +114,11 @@ hseAttrCapabilities_t *Hse_GetCapabilities(Hse_Task_ID Id) {
 }
 
 hseAttrFwVersion_t *Hse_GetFwVersion(Hse_Task_ID Id) {
-    if (Id < MAX_HSE_TASK_NUM) {
-        hseSrvDescriptor_t *pHseSrvDescriptor = &gHseSrvDescriptor[Id];
-        HOST_ADDR           RetVal = HSE_PTR_TO_HOST_ADDR(&gHseData[Id].Hse_FwVersion);
-        pHseSrvDescriptor->srvId   = HSE_SRV_ID_GET_ATTR;
+    if (Id < gTaskCount) {
+        hseSrvDescriptor_t *pHseSrvDescriptor = &gHSEContext[Id].SrvDescriptor;
+        HOST_ADDR           RetVal = HSE_PTR_TO_HOST_ADDR(&gHSEContext[Id].Data.Hse_FwVersion);
+
+        pHseSrvDescriptor->srvId                     = HSE_SRV_ID_GET_ATTR;
         pHseSrvDescriptor->hseSrv.getAttrReq.attrId  = HSE_FW_VERSION_ATTR_ID;
         pHseSrvDescriptor->hseSrv.getAttrReq.attrLen = sizeof(hseAttrFwVersion_t);
         pHseSrvDescriptor->hseSrv.getAttrReq.pAttr   = RetVal;
@@ -144,15 +128,22 @@ hseAttrFwVersion_t *Hse_GetFwVersion(Hse_Task_ID Id) {
 }
 
 bool Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32_t Size) {
-    if ((Id < MAX_HSE_TASK_NUM) || (Level > HSE_RNG_CLASS_PTG3)) {
-        hseSrvDescriptor_t *pHseSrvDescriptor = &gHseSrvDescriptor[Id];
+    if ((Id < gTaskCount) || (Level > HSE_RNG_CLASS_PTG3)) {
+        hseSrvDescriptor_t *pHseSrvDescriptor = &gHSEContext[Id].SrvDescriptor;
         HOST_ADDR           RetVal            = HSE_PTR_TO_HOST_ADDR(pBuffer);
-        pHseSrvDescriptor->srvId              = HSE_SRV_ID_GET_RANDOM_NUM;
+
+        pHseSrvDescriptor->srvId                                  = HSE_SRV_ID_GET_RANDOM_NUM;
         pHseSrvDescriptor->hseSrv.getRandomNumReq.rngClass        = Level;
         pHseSrvDescriptor->hseSrv.getRandomNumReq.randomNumLength = Size;
         pHseSrvDescriptor->hseSrv.getRandomNumReq.pRandomNum      = RetVal;
         return true;
     } else {
         return false;
+    }
+}
+
+void Hse_ActivatePassiveBlock(Hse_Task_ID Id) {
+    if (Id < gTaskCount) {
+        gHSEContext[Id].SrvDescriptor.srvId = HSE_SRV_ID_ACTIVATE_PASSIVE_BLOCK;
     }
 }

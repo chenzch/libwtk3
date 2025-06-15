@@ -47,6 +47,54 @@ static inline void Breakpoint(void) {
     __asm("bkpt");
 }
 
+typedef union {
+    uint32_t value;
+    struct {
+        bool     FWPresent : 1;
+        bool     MUIfReady : 1;
+        bool     CodeFlashErased : 1;
+        bool     DataFlashErased : 1;
+        bool     FirmwareErased : 1;
+        bool     RecoveryMode : 1;
+        uint8_t  reserved3 : 1;
+        bool     SBAF_Random : 1;
+        uint32_t reserved2 : 8;
+        bool     WriteLockUTEST : 1;
+        bool     WriteLock0 : 1;
+        bool     WriteLock1 : 1;
+        bool     WriteLock2 : 1;
+        bool     WriteLock3 : 1;
+        bool     WriteLock4 : 1;
+        uint32_t reserved1 : 2;
+        bool     ReadLockUTEST : 1;
+        bool     ReadLock0 : 1;
+        bool     ReadLock1 : 1;
+        bool     ReadLock2 : 1;
+        bool     ReadLock3 : 1;
+        bool     ReadLock4 : 1;
+        uint32_t reserved0 : 2;
+    } B;
+} HSE_CONFIG_GPR3;
+
+#define HSE_UTESTWrite  BIT(16)
+#define HSE_Block0Write BIT(17)
+#define HSE_Block1Write BIT(18)
+#define HSE_Block2Write BIT(19)
+#define HSE_Block3Write BIT(20)
+#define HSE_Block4Write BIT(21)
+#define HSE_UTESTRead   BIT(24)
+#define HSE_Block0Read  BIT(25)
+#define HSE_Block1Read  BIT(26)
+#define HSE_Block2Read  BIT(27)
+#define HSE_Block3Read  BIT(28)
+#define HSE_Block4Read  BIT(29)
+
+#define HSE_CONFIG_GPR3_READ_MASK  (0x3F000000)
+#define HSE_CONFIG_GPR3_WRITE_MASK (0x003F0000)
+#define HseConfigGPR3              (*(HSE_CONFIG_GPR3 *)0x4039C028UL)
+
+#define sBafVersion (*(uint64_t *)0x4039C020UL)
+
 // Siul2_Dio_Ip.h included
 #if defined(SIUL2_DIO_IP_H)
 #define SIUL2_DIO_PIN(Port, Pin)                                                                   \
@@ -82,11 +130,22 @@ void Siul2_Port_DebugOut(uint8_t Data);
 
 #define LogInit()                                                                                  \
     do {                                                                                           \
-        Siul2_Port_SetDebugPin(&DEBUGPINOUT);                                                       \
+        Siul2_Port_SetDebugPin(&DEBUGPINOUT);                                                      \
         IP_SIUL2->MSCR[(DEBUGPIN)] |= SIUL2_MSCR_OBE_MASK;                                         \
     } while (0)
 
-#define LogOut(DATA) Siul2_Port_DebugOut(DATA)
+#define LogChar(DATA) Siul2_Port_DebugOut(DATA)
+#define LogString(DATA)                                                                            \
+    do {                                                                                           \
+        for (uint32_t index = 0; (index < ARRAY_SIZE(DATA)); ++index) {                            \
+            register uint8_t Data = (DATA)[index];                                                 \
+            if (Data) {                                                                            \
+                Siul2_Port_DebugOut(Data);                                                         \
+            } else {                                                                               \
+                break;                                                                             \
+            }                                                                                      \
+        }                                                                                          \
+    } while (0)
 
 #else
 
@@ -94,9 +153,8 @@ void Siul2_Port_DebugOut(uint8_t Data);
     do {                                                                                           \
     } while (0)
 
-#define LogOut(DATA)                                                                               \
-    do {                                                                                           \
-    } while (0)
+#define LogChar   LogInit
+#define LogString LogInit
 
 #endif
 
@@ -344,7 +402,6 @@ static inline void Flexio_Timer_SetMode(uint8_t TimerID, Flexio_Mcl_Ip_TimerMode
 
 // C40_Ip.h included
 #if defined(C40_IP_H)
-
 #define C40_WaitForDone()                                                                          \
     do {                                                                                           \
         register uint32_t *pMCRS = &IP_FLASH->MCRS;                                                \
@@ -493,11 +550,30 @@ static inline uint32_t Dma_Control_DisableAutoRequest(Dma_Ip_LogicChannelTransfe
 
 #endif
 
-#define MAX_HSE_TASK_NUM (4)
+#if defined(CRYPTO_43_HSE_H)
+
+typedef struct {
+    bool isUsed;
+    Crypto_PrimitiveInfoType PrimitiveInfo;
+    Crypto_JobPrimitiveInfoType JobPrimitiveInfo;
+    Crypto_JobType Job;
+} Crypto_Task, *pCrypto_Task;
+
+typedef uint8_t Crypto_Task_ID;
+
+#define Crypto_Format Crypto_43_HSE_Exts_FormatKeyCatalogs
+
+void Crypto_Task_Init(uint32_t TaskCount, pCrypto_Task pTasks);
+
+Crypto_Task_ID Crypto_Task_GetFreeSlot(void);
+
+void Crypto_Task_Release(Crypto_Task_ID Id);
+
+Std_ReturnType Crypto_Task_SyncRequest(uint32_t ObjectId, Crypto_Task_ID Id);
+
+#elif defined(HSE_IP_H)
 
 // Hse_Ip.h included
-#if defined(HSE_IP_H)
-
 typedef union {
     hseStatus_t status;
     struct {
@@ -566,9 +642,22 @@ typedef union {
     } B;
 } Hse_Capabilities;
 
+typedef struct {
+    bool isUsed;
+    union {
+        hseAttrCapabilities_t Hse_AttrCapabilities;
+        hseAttrMUConfig_t     Hse_MuConfig;
+        hseAttrFwVersion_t    Hse_FwVersion;
+    } Data;
+    hseSrvDescriptor_t SrvDescriptor;
+} HSE_Context, *pHSE_Context;
+
 typedef uint8_t Hse_Task_ID;
 
-void Hse_Task_Init(void);
+#define Hse_WaitForDone()                                                                          \
+    while ((IP_MC_ME->PRTN0_CORE2_STAT & MC_ME_PRTN0_CORE2_STAT_WFI_MASK) != 0)
+
+void Hse_Task_Init(uint32_t TaskCount, pHSE_Context pHSEContext);
 
 Hse_Task_ID Hse_Task_GetFreeSlot(void);
 
@@ -586,25 +675,9 @@ hseAttrFwVersion_t *Hse_GetFwVersion(Hse_Task_ID Id);
 
 bool Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32_t Size);
 
+void Hse_ActivatePassiveBlock(Hse_Task_ID Id);
+
 #endif
-
-// #if defined(CRYPTO_43_HSE_H)
-
-// #define Crypto_Format Crypto_43_HSE_Exts_FormatKeyCatalogs
-
-// typedef uint8_t Hse_Task_ID;
-
-// void Hse_Task_Init(void);
-
-// Hse_Task_ID Hse_Task_GetFreeSlot(void);
-
-// void Hse_Task_Release(Hse_Task_ID Id);
-
-// // Std_ReturnType Hse_Task_SyncRequest(uint32_t ObjectId, Hse_Task_ID Id);
-
-// uint8_t *Hse_GetSHA256Buffer(Hse_Task_ID Id, uint8_t *pInputData, uint32_t Size);
-
-// #endif
 
 #if defined(__cplusplus)
 }

@@ -117,12 +117,39 @@ echo "#if !defined(NDEBUG)"
 echo "#include \"Devassert.h\""
 echo "#endif /* #if !defined(NDEBUG) */"
 echo
+
+
+if FindModule "Crypto_43_HSE"; then
+    echo
+else
+    if FindModule "Hse"; then
+        echo "#define HSE_MAX_TASK_COUNT 4
+
+#define CRYPTO_43_HSE_START_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
+#include \"Crypto_43_HSE_MemMap.h\"
+
+static HSE_Context gHSEContext[HSE_MAX_TASK_COUNT];
+
+#define CRYPTO_43_HSE_STOP_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
+#include \"Crypto_43_HSE_MemMap.h\""
+    fi
+fi
+
+echo
 echo "// Initialization"
 echo "void wtk3_init(void) {"
 # Initialization processing
 if FindModule "BaseNXP"; then
     echo "    OsIf_SuspendAllInterrupts();"
     echo "    OsIf_Init(NULL_PTR);"
+fi
+
+if FindModule "Crypto_43_HSE"; then
+    echo
+else
+    if FindModule "Hse"; then
+        echo "    Hse_WaitForDone();"
+    fi
 fi
 
 if FindModule "Mcu"; then
@@ -570,7 +597,7 @@ else
             DevAssert((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS == status);
 #endif /* #if !defined(NDEBUG) */
         }
-        Hse_Task_Init();
+        Hse_Task_Init(HSE_MAX_TASK_COUNT, &gHSEContext[0]);
     }"
     fi
 fi
@@ -621,6 +648,17 @@ else
         for NamedPin in $(grep -h '^#define .*_PIN ' $BaseRoot/board/Siul2_Port_Ip_Cfg.h | tr '_' ' ' | awk '{ print $2 }'); do
             echo "    Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN($NamedPin), 1);"
         done
+    fi
+fi
+
+if FindModule "Port"; then
+    echo
+else
+    if FindModule "Siul2_Port"; then
+        echo "#if defined(DEBUGPIN)
+    LogInit();
+    LogOut(0x55);
+#endif"
     fi
 fi
 
