@@ -32,6 +32,6 @@ void Siul2_Port_DebugOut(uint8_t Data) {
     register uint32_t          signal = (0x300 | (Data)) << 1;
     for (register uint32_t index = 0; index < 11; ++index, signal >>= 1) {
         *pOut = (signal & 1);
-        __asm("nop\nnop\nnop");
+        __asm("nop");__asm("nop");__asm("nop");__asm("nop");
     }
 }

@@ -148,7 +148,16 @@ if FindModule "Crypto_43_HSE"; then
     echo
 else
     if FindModule "Hse"; then
-        echo "    Hse_WaitForDone();"
+        echo "    {
+        Hse_Status status;
+        do {
+            status.status = Hse_Ip_GetHseStatus(0);
+#if !defined(NDEBUG)
+            DevAssert(status.B.InitOK);
+            DevAssert(status.B.RNGInitOK);
+#endif /* #if !defined(NDEBUG) */
+        } while(!(status.B.InitOK && status.B.RNGInitOK));
+    }"
     fi
 fi
 
@@ -441,8 +450,13 @@ if FindModule "POWER"; then
         Mode_Parameter=$(grep -h '^extern const Power_Ip_ModeConfigType .*\[\];' $BaseRoot/generate/include/Power_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
         Mode_Parameter="&$Mode_Parameter[0]"
     fi
+    Reset_Parameter="NULL_PTR"
+    if FileExist "$BaseRoot/generate/include/Power_Ip_*fg.h"; then
+        Reset_Parameter=$(grep -h '^extern const Power_Ip_HwIPsConfigType .*;' $BaseRoot/generate/include/Power_Ip_*fg.h | tr '[];' '   ' | awk '{ print $4 }');
+        Reset_Parameter="&$Reset_Parameter"
+    fi
     echo "    Power_Ip_Init($Power_Parameter);"
-    echo "    Power_Ip_SetMode($Mode_Parameter);"
+    echo "    // Power_Ip_SetMode($Mode_Parameter);"
     echo "    switch (Power_Ip_GetResetReason()) {
     case MCU_POWER_ON_RESET:           /**< @brief Power on reset event. RGM_DES[F_DR0]. */
     case MCU_FCCU_FTR_RESET:           /**< @brief FCCU failure to react. RGM_DES[F_DR3]. */
@@ -478,7 +492,10 @@ if FindModule "POWER"; then
     case MCU_RESET_UNDEFINED:          /**< @brief Undefined reset source. */
     default:
         break;
-	}"
+	}
+#if (POWER_IP_PERFORM_RESET_API == STD_ON)
+    Power_Ip_PerformReset($Reset_Parameter);
+#endif /* (POWER_IP_PERFORM_RESET_API == STD_ON) */"
 fi
 
 if FindModule "Dma_Ip"; then
@@ -581,17 +598,9 @@ if FindModule "Crypto_43_HSE"; then
 else
     if FindModule "Hse"; then
         echo "    {
-        Hse_Status status;
-        do {
-            status.status = Hse_Ip_GetHseStatus(0);
-#if !defined(NDEBUG)
-            DevAssert(status.B.InitOK);
-            DevAssert(status.B.RNGInitOK);
-#endif /* #if !defined(NDEBUG) */
-        } while(!(status.B.InitOK && status.B.RNGInitOK));
-
+        static Hse_Ip_ReqType Hse_Ip_Request[HSE_IP_NUM_OF_MU_INSTANCES][HSE_IP_NUM_OF_CHANNELS_PER_MU];
         static Hse_Ip_MuStateType HseIp_MuState[HSE_IP_NUM_OF_MU_INSTANCES];
-        for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; InstID++) {
+        for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; ++InstID) {
             Hse_Ip_StatusType status = Hse_Ip_Init(InstID, &HseIp_MuState[InstID]);
 #if !defined(NDEBUG)
             DevAssert((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS == status);
@@ -657,7 +666,7 @@ else
     if FindModule "Siul2_Port"; then
         echo "#if defined(DEBUGPIN)
     LogInit();
-    LogOut(0x55);
+    LogChar(0x55);
 #endif"
     fi
 fi

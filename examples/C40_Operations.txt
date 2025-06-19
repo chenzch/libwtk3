@@ -81,6 +81,8 @@ int main(void)
 
     status = C40_Ip_MainInterfaceSectorErase(sector, EXAMPLE_MASTER_ID);
 
+    while (HseConfigGPR3.value & (HSE_CONFIG_GPR3_READ_MASK | HSE_CONFIG_GPR3_WRITE_MASK));
+
     C40_WaitForDone();
 
 #if defined(DEBUG_ASSERT)
@@ -101,10 +103,12 @@ int main(void)
 
     status = C40_Ip_MainInterfaceWrite(address, t_BufferSize, TxBuffer, EXAMPLE_MASTER_ID);
 
+    while (HseConfigGPR3.value & (HSE_CONFIG_GPR3_READ_MASK | HSE_CONFIG_GPR3_WRITE_MASK));
+
     C40_WaitForDone();
 
 #if defined(DEBUG_ASSERT)
-        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+    DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */
 
     do {
@@ -112,7 +116,7 @@ int main(void)
     } while (C40_IP_STATUS_BUSY == status);
 
 #if defined(DEBUG_ASSERT)
-        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+    DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */
 
         static uint8_t RxBuffer[WRITE_SIZE]; // Buffer to read data back
@@ -120,13 +124,13 @@ int main(void)
     status = C40_Ip_Read(address, t_BufferSize, RxBuffer);
 
 #if defined(DEBUG_ASSERT)
-        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+    DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */
 
     status = C40_Ip_Compare(address, t_BufferSize, TxBuffer);
 
 #if defined(DEBUG_ASSERT)
-        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
+    DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
 #endif /* #if defined(DEBUG_ASSERT) */
 
     for (;;)

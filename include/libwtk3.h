@@ -404,7 +404,7 @@ static inline void Flexio_Timer_SetMode(uint8_t TimerID, Flexio_Mcl_Ip_TimerMode
 #if defined(C40_IP_H)
 #define C40_WaitForDone()                                                                          \
     do {                                                                                           \
-        register uint32_t *pMCRS = &IP_FLASH->MCRS;                                                \
+        register volatile uint32_t *pMCRS = &IP_FLASH->MCRS;                                       \
         IP_FLASH->MCR |= FLASH_MCR_EHV_MASK;                                                       \
         while (0 == ((*pMCRS) & FLASH_MCRS_DONE_MASK))                                             \
             ;                                                                                      \
@@ -553,10 +553,10 @@ static inline uint32_t Dma_Control_DisableAutoRequest(Dma_Ip_LogicChannelTransfe
 #if defined(CRYPTO_43_HSE_H)
 
 typedef struct {
-    bool isUsed;
-    Crypto_PrimitiveInfoType PrimitiveInfo;
+    bool                        isUsed;
+    Crypto_PrimitiveInfoType    PrimitiveInfo;
     Crypto_JobPrimitiveInfoType JobPrimitiveInfo;
-    Crypto_JobType Job;
+    Crypto_JobType              Job;
 } Crypto_Task, *pCrypto_Task;
 
 typedef uint8_t Crypto_Task_ID;
@@ -642,6 +642,8 @@ typedef union {
     } B;
 } Hse_Capabilities;
 
+#define HSE_SRV_RSP_BUSY ((hseSrvResponse_t)0x0UL)
+
 typedef struct {
     bool isUsed;
     union {
@@ -650,12 +652,14 @@ typedef struct {
         hseAttrFwVersion_t    Hse_FwVersion;
     } Data;
     hseSrvDescriptor_t SrvDescriptor;
+    Hse_Ip_ReqType     SrvRequest;
+    hseSrvResponse_t   SrvResponse;
 } HSE_Context, *pHSE_Context;
 
 typedef uint8_t Hse_Task_ID;
 
 #define Hse_WaitForDone()                                                                          \
-    while ((IP_MC_ME->PRTN0_CORE2_STAT & MC_ME_PRTN0_CORE2_STAT_WFI_MASK) != 0)
+    while ((IP_MC_ME->PRTN0_CORE2_STAT & MC_ME_PRTN0_CORE2_STAT_WFI_MASK) == 0)
 
 void Hse_Task_Init(uint32_t TaskCount, pHSE_Context pHSEContext);
 
@@ -666,6 +670,10 @@ void Hse_Task_Release(Hse_Task_ID Id);
 hseSrvResponse_t Hse_Task_MasterRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint32_t u32Timeout);
 
 hseSrvResponse_t Hse_Task_SyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint32_t u32Timeout);
+
+hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance);
+
+hseSrvResponse_t Hse_Task_GetResponse(Hse_Task_ID Id);
 
 hseAttrMUConfig_t *Hse_GetMuConfig(Hse_Task_ID Id);
 
