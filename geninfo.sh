@@ -120,7 +120,11 @@ echo
 
 
 if FindModule "Crypto_43_HSE"; then
-    echo
+    if FileExist "$BaseRoot/generate/include/Crypto_43_HSE_*fg.h"; then
+        for ObjectId in $(grep -h '^#define CryptoConf_CryptoDriverObject_.*' $BaseRoot/generate/include/Crypto_43_HSE_*fg.h | awk '{ print $2 }'); do
+            echo "#define ObjectId_${ObjectId/CryptoConf_CryptoDriverObject_/} $ObjectId"
+        done
+    fi
 else
     if FindModule "Hse"; then
         echo "#define HSE_MAX_TASK_COUNT 4
@@ -594,7 +598,10 @@ fi
 
 if FindModule "Crypto_43_HSE"; then
     echo "    /* Initialize Crypto driver */
-    Crypto_43_HSE_Init(NULL_PTR);"
+    Crypto_43_HSE_Init(NULL_PTR);
+#define HSE_MAX_TASK_COUNT 4
+    static Crypto_Task Tasks[HSE_MAX_TASK_COUNT];
+    Crypto_Task_Init(HSE_MAX_TASK_COUNT, &Tasks[0]);"
 else
     if FindModule "Hse"; then
         echo "    {

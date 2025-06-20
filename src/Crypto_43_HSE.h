@@ -20,6 +20,8 @@
 #ifndef CRYPTO_43_HSE_H
 #define CRYPTO_43_HSE_H
 
+#define E_NOT_OK 0x01U
+
 typedef uint8_t Std_ReturnType;
 
 typedef enum
@@ -218,5 +220,10 @@ typedef struct
 } Crypto_JobType;
 
 Std_ReturnType Crypto_43_HSE_ProcessJob(uint32_t objectId, Crypto_JobType* job);
+
+void Crypto_43_HSE_MainFunction (void);
+
+#define CRYPTO_43_HSE_ALGOMODE_CUSTOM_DRBG_PR ((uint8_t)130)  /* Deterministic Random Bit Generator with prediction resistance */
+#define CRYPTO_43_HSE_ALGOMODE_CUSTOM_DRBG_RS ((uint8_t)131)  /* Deterministic Random Bit Generator with prediction resistance and reseed for each 16 bytes of data */
 
 #endif

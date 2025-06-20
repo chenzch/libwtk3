@@ -1,0 +1,131 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 4.0.0
+* Build Version : S32K3_RTD_4_0_0_HF02_D2407_ASR_REL_4_7_REV_0000_20240725
+*
+* Copyright 2020 - 2024 NXP
+*
+* NXP Confidential. This software is owned or controlled by NXP and may only be
+* used strictly in accordance with the applicable license terms. By expressly
+* accepting such terms or by downloading, installing, activating and/or otherwise
+* using the software, you are agreeing that you have read, and that you agree to
+* comply with and are bound by, such license terms. If you do not agree to be
+* bound by the applicable license terms, then you may not retain, install,
+* activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+#include "Mcal.h"
+#include "OsIf.h"
+#include "Mcu.h"
+#include "Crypto_43_HSE.h"
+#include "Crypto_43_HSE_Util.h"
+#include "Platform.h"
+#include "libwtk3.h"
+
+#define ObjectId_CryptoDriverObject_0 CryptoConf_CryptoDriverObject_CryptoDriverObject_0
+
+#define CRYPTO_43_HSE_START_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
+#include "Crypto_43_HSE_MemMap.h"
+
+static uint8_t RandomBuffer[16];
+
+static uint32_t RandomBufferSize;
+
+#define CRYPTO_43_HSE_STOP_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
+#include "Crypto_43_HSE_MemMap.h"
+
+ISR(Mu_Ip_Mu0_OredRx_Isr);
+
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+    /* Write your code here */
+    OsIf_SuspendAllInterrupts();
+
+    OsIf_Init(NULL_PTR);
+
+    /* Initialize the Mcu driver */
+#if (MCU_PRECOMPILE_SUPPORT == STD_ON)
+    Mcu_Init(NULL_PTR);
+#else
+    Mcu_Init(&Mcu_Config);
+#endif /* (MCU_PRECOMPILE_SUPPORT == STD_ON) */
+
+    /* Initialize the clock tree and apply PLL as system clock */
+#if (MCU_INIT_CLOCK == STD_ON)
+    Mcu_InitClock(McuClockSettingConfig_0);
+#endif /* (MCU_INIT_CLOCK == STD_ON) */
+
+    /* Apply a mode configuration */
+    Mcu_SetMode(McuModeSettingConf_0);
+
+    /* Initialize Crypto driver */
+    Crypto_43_HSE_Init(NULL_PTR);
+    Platform_Init(NULL_PTR);
+
+    Platform_InstallIrqHandler(HSE_MU0_RX_IRQn, Mu_Ip_Mu0_OredRx_Isr, NULL_PTR); // Parameter 3 is output of current ISR
+    Platform_SetIrqPriority(HSE_MU0_RX_IRQn, 0); // 0 highest -> 15 lowest
+    Platform_SetIrq(HSE_MU0_RX_IRQn, TRUE);
+
+    OsIf_ResumeAllInterrupts();
+
+#define HSE_MAX_TASK_COUNT 4
+    static Crypto_Task Tasks[HSE_MAX_TASK_COUNT];
+    Crypto_Task_Init(HSE_MAX_TASK_COUNT, &Tasks[0]);
+
+    Crypto_Task_ID taskId = Crypto_Task_GetFreeSlot();
+
+    if (taskId != HSE_MAX_TASK_COUNT) {
+
+    	RandomBufferSize = ARRAY_SIZE(RandomBuffer);
+
+        Crypto_Task_GetRandomBuffer(taskId, 0, &RandomBuffer[0], &RandomBufferSize);
+
+        Crypto_Task_SyncRequest(ObjectId_CryptoDriverObject_0, taskId);
+
+        Crypto_Task_Release(taskId);
+    }
+
+    taskId = Crypto_Task_GetFreeSlot();
+
+    if (taskId != HSE_MAX_TASK_COUNT) {
+
+        RandomBufferSize = ARRAY_SIZE(RandomBuffer);
+
+        Crypto_Task_GetRandomBuffer(taskId, 0, &RandomBuffer[0], &RandomBufferSize);
+
+        Crypto_Task_AsyncRequest(ObjectId_CryptoDriverObject_0, taskId);
+
+        while (Crypto_Task_GetResponse(taskId) != CRYPTO_JOBSTATE_IDLE) {
+            /* Wait for the job to finish */
+        }
+
+        Crypto_Task_Release(taskId);
+
+    }
+
+    for (;;)
+        ;
+}
+
+/** @} */

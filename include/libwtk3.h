@@ -557,19 +557,25 @@ typedef struct {
     Crypto_PrimitiveInfoType    PrimitiveInfo;
     Crypto_JobPrimitiveInfoType JobPrimitiveInfo;
     Crypto_JobType              Job;
-} Crypto_Task, *pCrypto_Task;
+} Crypto_Task;
 
 typedef uint8_t Crypto_Task_ID;
 
 #define Crypto_Format Crypto_43_HSE_Exts_FormatKeyCatalogs
 
-void Crypto_Task_Init(uint32_t TaskCount, pCrypto_Task pTasks);
+void Crypto_Task_Init(uint32_t TaskCount, Crypto_Task *pTasks);
 
 Crypto_Task_ID Crypto_Task_GetFreeSlot(void);
 
 void Crypto_Task_Release(Crypto_Task_ID Id);
 
 Std_ReturnType Crypto_Task_SyncRequest(uint32_t ObjectId, Crypto_Task_ID Id);
+
+Std_ReturnType Crypto_Task_AsyncRequest(uint32_t ObjectId, Crypto_Task_ID Id);
+
+Crypto_JobStateType Crypto_Task_GetResponse(Crypto_Task_ID Id);
+
+void Crypto_Task_GetRandomBuffer(Crypto_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32_t *pSize);
 
 #elif defined(HSE_IP_H)
 
