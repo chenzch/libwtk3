@@ -679,7 +679,7 @@ hseSrvResponse_t Hse_Task_MasterRequest(Hse_Task_ID Id, uint8_t u8MuInstance, ui
 
 hseSrvResponse_t Hse_Task_SyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint32_t u32Timeout);
 
-hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, bool useInterrupt);
+hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance);
 
 hseSrvResponse_t Hse_Task_GetResponse(Hse_Task_ID Id, uint8_t u8MuInstance);
 

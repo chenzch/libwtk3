@@ -95,16 +95,12 @@ static void Hse_Callback(uint8_t u8MuInstance, uint8_t u8MuChannel, hseSrvRespon
     }
 }
 
-hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, bool useInterrupt) {
+hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance) {
     uint8_t u8MuChannel = Hse_Ip_GetFreeChannel(u8MuInstance);
 
     if ((HSE_IP_INVALID_MU_CHANNEL_U8 != u8MuChannel) && (Id < gTaskCount) && (gTasks[Id].isUsed) &&
         (gHSEContext[Id].SrvDescriptor.srvId != HSE_SRV_ID_INVALID)) {
-        if (useInterrupt) {
-            gTasks[Id].SrvRequest.eReqType = HSE_IP_REQTYPE_ASYNC_IRQ;
-        } else {
-            gTasks[Id].SrvRequest.eReqType = HSE_IP_REQTYPE_ASYNC_POLL;
-        }
+        gTasks[Id].SrvRequest.eReqType = HSE_IP_REQTYPE_ASYNC_POLL;
         gTasks[Id].SrvRequest.pfCallback     = Hse_Callback;
         gTasks[Id].SrvRequest.pCallbackParam = (void *)(uint32_t)Id;
         gTasks[Id].SrvRequest.u32Timeout     = -1U;
