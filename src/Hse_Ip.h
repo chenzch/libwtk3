@@ -51,6 +51,8 @@ typedef struct {
 hseSrvResponse_t Hse_Ip_ServiceRequest(uint8_t u8MuInstance, uint8_t u8MuChannel,
                                        Hse_Ip_ReqType *pRequest, hseSrvDescriptor_t *pHseSrvDesc);
 
+void Hse_Ip_MainFunction(uint8_t u8MuInstance);
+
 #define HSE_IP_INVALID_MU_CHANNEL_U8 ((uint8_t)0xFFU)
 uint8_t Hse_Ip_GetFreeChannel(uint8_t u8MuInstance);
 

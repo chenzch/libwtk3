@@ -606,7 +606,10 @@ else
             DevAssert((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS == status);
 #endif /* #if !defined(NDEBUG) */
         }
-        Hse_Task_Init(HSE_MAX_TASK_COUNT, &gHSEContext[0]);
+        {
+            static HSE_Task gTasks[HSE_MAX_TASK_COUNT];
+            Hse_Task_Init(HSE_MAX_TASK_COUNT, &gTasks[0], &gHSEContext[0]);
+        }
     }"
     fi
 fi

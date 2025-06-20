@@ -28,20 +28,22 @@
 #define HSE_SRV_ID_INVALID (0)
 
 static uint32_t     gTaskCount  = 0;
-static pHSE_Context gHSEContext = NULL;
+static HSE_Context *gHSEContext = NULL;
+static HSE_Task    *gTasks      = NULL;
 
-void Hse_Task_Init(uint32_t TaskCount, pHSE_Context pHSEContext) {
+void Hse_Task_Init(uint32_t TaskCount, HSE_Task *pHSE_Task, HSE_Context *pHSEContext) {
     gTaskCount  = TaskCount;
     gHSEContext = pHSEContext;
+    gTasks      = pHSE_Task;
     for (Hse_Task_ID index = 0; index < gTaskCount; index++) {
-        gHSEContext[index].isUsed = false;
+        gTasks[index].isUsed = false;
     }
 }
 
 Hse_Task_ID Hse_Task_GetFreeSlot(void) {
     for (Hse_Task_ID index = 0; index < gTaskCount; index++) {
-        if (!gHSEContext[index].isUsed) {
-            gHSEContext[index].isUsed              = true;
+        if (!gTasks[index].isUsed) {
+            gTasks[index].isUsed                   = true;
             gHSEContext[index].SrvDescriptor.srvId = HSE_SRV_ID_INVALID;
             return index;
         }
@@ -51,23 +53,23 @@ Hse_Task_ID Hse_Task_GetFreeSlot(void) {
 
 void Hse_Task_Release(Hse_Task_ID Id) {
     if (Id < gTaskCount) {
-        gHSEContext[Id].isUsed = false;
+        gTasks[Id].isUsed = false;
     }
 }
 
 static hseSrvResponse_t Hse_Task_SyncRequestChannel(Hse_Task_ID Id, uint8_t u8MuInstance,
                                                     uint8_t u8MuChannel, uint32_t u32Timeout) {
-    if ((Id < gTaskCount) && (gHSEContext[Id].isUsed) &&
+    if ((Id < gTaskCount) && (gTasks[Id].isUsed) &&
         (gHSEContext[Id].SrvDescriptor.srvId != HSE_SRV_ID_INVALID)) {
-        gHSEContext[Id].SrvRequest.eReqType       = HSE_IP_REQTYPE_SYNC;
-        gHSEContext[Id].SrvRequest.pfCallback     = NULL;
-        gHSEContext[Id].SrvRequest.pCallbackParam = NULL;
-        gHSEContext[Id].SrvRequest.u32Timeout     = u32Timeout;
+        gTasks[Id].SrvRequest.eReqType       = HSE_IP_REQTYPE_SYNC;
+        gTasks[Id].SrvRequest.pfCallback     = NULL;
+        gTasks[Id].SrvRequest.pCallbackParam = NULL;
+        gTasks[Id].SrvRequest.u32Timeout     = u32Timeout;
 
-        gHSEContext[Id].SrvResponse = Hse_Ip_ServiceRequest(
-            u8MuInstance, u8MuChannel, &gHSEContext[Id].SrvRequest, &gHSEContext[Id].SrvDescriptor);
+        gTasks[Id].SrvResponse = Hse_Ip_ServiceRequest(
+            u8MuInstance, u8MuChannel, &gTasks[Id].SrvRequest, &gHSEContext[Id].SrvDescriptor);
 
-        return gHSEContext[Id].SrvResponse;
+        return gTasks[Id].SrvResponse;
     }
     return HSE_SRV_RSP_GENERAL_ERROR;
 }
@@ -88,31 +90,38 @@ hseSrvResponse_t Hse_Task_SyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint
 static void Hse_Callback(uint8_t u8MuInstance, uint8_t u8MuChannel, hseSrvResponse_t HseResponse,
                          void *pCallbackParam) {
     Hse_Task_ID Id = (Hse_Task_ID)((uint32_t)pCallbackParam & 0xFF);
-    if ((Id < gTaskCount) && (gHSEContext[Id].isUsed)) {
-        gHSEContext[Id].SrvResponse = (hseSrvResponse_t)HseResponse;
+    if ((Id < gTaskCount) && (gTasks[Id].isUsed)) {
+        gTasks[Id].SrvResponse = (hseSrvResponse_t)HseResponse;
     }
 }
 
-hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance) {
+hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, bool useInterrupt) {
     uint8_t u8MuChannel = Hse_Ip_GetFreeChannel(u8MuInstance);
 
-    if ((HSE_IP_INVALID_MU_CHANNEL_U8 != u8MuChannel) && (Id < gTaskCount) &&
-        (gHSEContext[Id].isUsed) && (gHSEContext[Id].SrvDescriptor.srvId != HSE_SRV_ID_INVALID)) {
-        gHSEContext[Id].SrvRequest.eReqType       = HSE_IP_REQTYPE_ASYNC_IRQ;
-        gHSEContext[Id].SrvRequest.pfCallback     = Hse_Callback;
-        gHSEContext[Id].SrvRequest.pCallbackParam = (void *)(uint32_t)Id;
-        gHSEContext[Id].SrvRequest.u32Timeout     = -1U;
-        gHSEContext[Id].SrvResponse               = HSE_SRV_RSP_BUSY;
+    if ((HSE_IP_INVALID_MU_CHANNEL_U8 != u8MuChannel) && (Id < gTaskCount) && (gTasks[Id].isUsed) &&
+        (gHSEContext[Id].SrvDescriptor.srvId != HSE_SRV_ID_INVALID)) {
+        if (useInterrupt) {
+            gTasks[Id].SrvRequest.eReqType = HSE_IP_REQTYPE_ASYNC_IRQ;
+        } else {
+            gTasks[Id].SrvRequest.eReqType = HSE_IP_REQTYPE_ASYNC_POLL;
+        }
+        gTasks[Id].SrvRequest.pfCallback     = Hse_Callback;
+        gTasks[Id].SrvRequest.pCallbackParam = (void *)(uint32_t)Id;
+        gTasks[Id].SrvRequest.u32Timeout     = -1U;
+        gTasks[Id].SrvResponse               = HSE_SRV_RSP_BUSY;
 
-        return Hse_Ip_ServiceRequest(u8MuInstance, u8MuChannel, &gHSEContext[Id].SrvRequest,
+        return Hse_Ip_ServiceRequest(u8MuInstance, u8MuChannel, &gTasks[Id].SrvRequest,
                                      &gHSEContext[Id].SrvDescriptor);
     }
     return HSE_SRV_RSP_GENERAL_ERROR;
 }
 
-hseSrvResponse_t Hse_Task_GetResponse(Hse_Task_ID Id) {
-    if ((Id < gTaskCount) && (gHSEContext[Id].isUsed)) {
-        return gHSEContext[Id].SrvResponse;
+hseSrvResponse_t Hse_Task_GetResponse(Hse_Task_ID Id, uint8_t u8MuInstance) {
+    if ((Id < gTaskCount) && (gTasks[Id].isUsed)) {
+        if (gTasks[Id].SrvRequest.eReqType == HSE_IP_REQTYPE_ASYNC_POLL) {
+            Hse_Ip_MainFunction(u8MuInstance);
+        }
+        return gTasks[Id].SrvResponse;
     } else {
         return HSE_SRV_RSP_GENERAL_ERROR;
     }

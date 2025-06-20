@@ -84,7 +84,10 @@ int main(void)
     for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; ++InstID) {
         Hse_Ip_Init(InstID, &HseIp_MuState[InstID]);
     }
-    Hse_Task_Init(HSE_MAX_TASK_COUNT, &gHSEContext[0]);
+    {
+        static HSE_Task gTasks[HSE_MAX_TASK_COUNT];
+        Hse_Task_Init(HSE_MAX_TASK_COUNT, &gTasks[0], &gHSEContext[0]);
+    }
 
     OsIf_ResumeAllInterrupts();
 
@@ -120,10 +123,10 @@ int main(void)
 
     taskId = Hse_Task_GetFreeSlot();
     if (Hse_GetRandomBuffer(taskId, HSE_RNG_CLASS_DRG4, &RandomBuffer[0], 16)) {
-        response = Hse_Task_AsyncRequest(taskId, 0);
+        response = Hse_Task_AsyncRequest(taskId, 0, false);
 
         do {
-            response = Hse_Task_GetResponse(taskId);
+            response = Hse_Task_GetResponse(taskId, 0);
         } while (HSE_SRV_RSP_BUSY == response);
     }
 

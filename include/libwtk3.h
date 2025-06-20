@@ -638,30 +638,32 @@ typedef union {
         bool KDF_TLS12_PRF : 1;     // bit 31
         bool HKDF : 1;              // bit 32
         bool KDF_IKEV2 : 1;         // bit 33
-
     } B;
 } Hse_Capabilities;
 
 #define HSE_SRV_RSP_BUSY ((hseSrvResponse_t)0x0UL)
 
 typedef struct {
-    bool isUsed;
     union {
         hseAttrCapabilities_t Hse_AttrCapabilities;
         hseAttrMUConfig_t     Hse_MuConfig;
         hseAttrFwVersion_t    Hse_FwVersion;
     } Data;
     hseSrvDescriptor_t SrvDescriptor;
+} HSE_Context;
+
+typedef struct {
+    bool isUsed;
     Hse_Ip_ReqType     SrvRequest;
     hseSrvResponse_t   SrvResponse;
-} HSE_Context, *pHSE_Context;
+} HSE_Task;
 
 typedef uint8_t Hse_Task_ID;
 
 #define Hse_WaitForDone()                                                                          \
     while ((IP_MC_ME->PRTN0_CORE2_STAT & MC_ME_PRTN0_CORE2_STAT_WFI_MASK) == 0)
 
-void Hse_Task_Init(uint32_t TaskCount, pHSE_Context pHSEContext);
+void Hse_Task_Init(uint32_t TaskCount, HSE_Task *pHSE_Task, HSE_Context *pHSEContext);
 
 Hse_Task_ID Hse_Task_GetFreeSlot(void);
 
@@ -671,9 +673,9 @@ hseSrvResponse_t Hse_Task_MasterRequest(Hse_Task_ID Id, uint8_t u8MuInstance, ui
 
 hseSrvResponse_t Hse_Task_SyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint32_t u32Timeout);
 
-hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance);
+hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, bool useInterrupt);
 
-hseSrvResponse_t Hse_Task_GetResponse(Hse_Task_ID Id);
+hseSrvResponse_t Hse_Task_GetResponse(Hse_Task_ID Id, uint8_t u8MuInstance);
 
 hseAttrMUConfig_t *Hse_GetMuConfig(Hse_Task_ID Id);
 
