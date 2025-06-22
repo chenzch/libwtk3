@@ -34,6 +34,7 @@
 #include "Mcu.h"
 #include "Crypto_43_HSE.h"
 #include "Crypto_43_HSE_Util.h"
+#include "Platform.h"
 #include "libwtk3.h"
 
 #define ObjectId_CryptoDriverObject_0 CryptoConf_CryptoDriverObject_CryptoDriverObject_0
@@ -47,6 +48,8 @@ static uint32_t RandomBufferSize;
 
 #define CRYPTO_43_HSE_STOP_SEC_VAR_CLEARED_UNSPECIFIED_NO_CACHEABLE
 #include "Crypto_43_HSE_MemMap.h"
+
+ISR(Mu_Ip_Mu0_OredRx_Isr);
 
 /*!
   \brief The main function for the project.
@@ -78,6 +81,11 @@ int main(void)
 
     /* Initialize Crypto driver */
     Crypto_43_HSE_Init(NULL_PTR);
+    Platform_Init(NULL_PTR);
+
+    Platform_InstallIrqHandler(HSE_MU0_RX_IRQn, Mu_Ip_Mu0_OredRx_Isr, NULL_PTR); // Parameter 3 is output of current ISR
+    Platform_SetIrqPriority(HSE_MU0_RX_IRQn, 0); // 0 highest -> 15 lowest
+    Platform_SetIrq(HSE_MU0_RX_IRQn, TRUE);
 
     OsIf_ResumeAllInterrupts();
 

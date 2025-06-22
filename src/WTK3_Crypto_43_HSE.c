@@ -130,8 +130,6 @@ Crypto_JobStateType Crypto_Task_GetResponse(Crypto_Task_ID Id) {
     // {  (boolean)TRUE,    (boolean)TRUE,         0x0U,                0x0U,                    0x0U,                 0x0U,                  0x0U,                   0x0U         },  /* CRYPTO_KEYDERIVE             Idx = 0x0E */
     // {  (boolean)TRUE,    (boolean)FALSE,        0x0U,             CRYPTO_F_U8,                0x0U,                 0x0U,                  0x0U,                   0x0U         },  /* CRYPTO_KEYEXCHANGECALCPUBVAL Idx = 0x0F */
     // {  (boolean)TRUE,    (boolean)FALSE,     CRYPTO_F_U8,            0x0U,                    0x0U,                 0x0U,                  0x0U,                   0x0U         },  /* CRYPTO_KEYEXCHANGECALCSECRET Idx = 0x10 */
-    // {  (boolean)TRUE,    (boolean)FALSE,        0x0U,                0x0U,                    0x0U,                 0x0U,                  0x0U,                   0x0U         },  /* CRYPTO_KEYSETVALID           Idx = 0x13 */
-    // {  (boolean)TRUE,    (boolean)FALSE,        0x0U,                0x0U,                    0x0U,                 0x0U,                  0x0U,                   0x0U         }   /* CRYPTO_KEYSETINVALID         Idx = 0x14 */
 
 // CRYPTO_RANDOMSEED CRYPTO_43_HSE_RET_NOT_SUPPORTED
 
@@ -164,5 +162,37 @@ void Crypto_Task_GetRandomBuffer(Crypto_Task_ID Id, uint8_t Level, uint8_t *pBuf
 
         pJob->jobPrimitiveInputOutput.outputPtr = pBuffer;
         pJob->jobPrimitiveInputOutput.outputLengthPtr = pSize;
+    }
+}
+
+    // CRYPTO_KEYSETVALID           Idx = 0x13
+    // /* bSingleCallOnly, bCheckTargetKeyId, u8InputModeMask, u8SecondaryInputModeMask, u8TertiaryInputModeMask, u8OutputModeMask, u8SecondaryOutputModeMask, u8VerifyPtrModeMask */
+    // {  (boolean)TRUE,    (boolean)FALSE,        0x0U,                0x0U,                    0x0U,                 0x0U,                  0x0U,                   0x0U         },
+void Crypto_Task_KeySetValid(Crypto_Task_ID Id, uint32_t KeyElement) {
+    if ((Id < gTaskCount) && (gCryptoTask[Id].isUsed)) {
+        Crypto_Task *pTask = &gCryptoTask[Id];
+
+        Crypto_PrimitiveInfoType *pPrimitiveInfo = &pTask->PrimitiveInfo;
+        Crypto_JobType *pJob = &pTask->Job;
+
+        pPrimitiveInfo->service = CRYPTO_KEYSETVALID;
+
+        pJob->jobPrimitiveInputOutput.cryIfKeyId = KeyElement;
+    }
+}
+
+    // CRYPTO_KEYSETINVALID
+    // /* bSingleCallOnly, bCheckTargetKeyId, u8InputModeMask, u8SecondaryInputModeMask, u8TertiaryInputModeMask, u8OutputModeMask, u8SecondaryOutputModeMask, u8VerifyPtrModeMask */
+    // {  (boolean)TRUE,    (boolean)FALSE,        0x0U,                0x0U,                    0x0U,                 0x0U,                  0x0U,                   0x0U         }
+void Crypto_Task_KeySetInvalid(Crypto_Task_ID Id, uint32_t KeyElement) {
+    if ((Id < gTaskCount) && (gCryptoTask[Id].isUsed)) {
+        Crypto_Task *pTask = &gCryptoTask[Id];
+
+        Crypto_PrimitiveInfoType *pPrimitiveInfo = &pTask->PrimitiveInfo;
+        Crypto_JobType *pJob = &pTask->Job;
+
+        pPrimitiveInfo->service = CRYPTO_KEYSETINVALID;
+
+        pJob->jobPrimitiveInputOutput.cryIfKeyId = KeyElement;
     }
 }

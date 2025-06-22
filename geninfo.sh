@@ -20,6 +20,94 @@ FindProcessor() {
     grep "<processor>" "$MexFile" | tr '<>' '  ' | awk '{ print $2}'
 }
 
+PrintMPUInfo() {
+    for file in $BaseRoot/generate/src/Mpu_M7_Ip_*fg.c; do
+        if [ -f "$file" ]; then
+            start_line=$(grep -n "const Mpu_M7_Ip_RegionConfigType" "$file" | cut -d: -f1)
+            start_line=$((start_line + 1))
+            end_line=$(sed -n "${start_line},\$p" "$file" | grep -n "};" | head -n 1 | cut -d: -f1)
+            end_line=$((end_line + start_line - 1))
+            extracted_content=$(sed -n "${start_line},${end_line}p" "$file")
+            cleaned_content=$(echo "$extracted_content" | sed 's|/\*.*\*/||g')
+
+            buffer=()
+            line_count=0
+
+            if [ "$start_line" -gt 1 ]; then
+                echo "    /* MPU Region Configuration in $file */"
+                echo "    /*        ID,  StartAddr,  EndAddress,Size, MemoryType              , AccessRights            , Outer Cache Policy                  , Inner Cache Policy                  , SubRegion , Shareable */"
+                echo "$cleaned_content" | while IFS= read -r line; do
+                    line="${line#"${line%%[![:space:]]*}"}"
+                    line="${line//UL,/}"
+                    line="${line//U,/}"
+                    if [[ "$line" =~ ^[{}] ]]; then
+                        continue
+                    fi
+
+                    buffer+=("$line")
+                    line_count=$((line_count + 1))
+
+                    if [ $line_count -eq 9 ]; then
+                        num1=$(echo "${buffer[0]}" | sed 's/[^0-9]*//g')
+                        printf "    /* Region %2d, " "$num1"
+
+                        num2=$(echo "${buffer[1]}" | sed 's/[^0-9]*//g')
+                        printf "0x%08X - " "$num2"
+
+                        num3=$(echo "${buffer[2]}" | sed 's/[^0-9]*//g')
+
+                        size=$((num3 - num2 + 1))
+                        sizenum=0
+                        num3_calc=1
+                        for i in {0..31}; do
+                            num3_calc=$((num3_calc * 2))
+                            if (( (2 << i) >= size )); then
+                                sizenum=$i
+                                break
+                            fi
+                        done
+
+                        num3_calc=$((num3_calc - 1))
+
+                        if ((sizenum == 0)); then
+                            printf "0x%08X, Err, " "$num3"
+                        else
+                            printf "0x%08X, " "$num3_calc"
+                            printf " %-2d, " "$sizenum"
+                        fi
+
+                        for i in {3..6}; do
+                            buffer[$i]=$(echo "${buffer[$i]}" | sed 's/MPU_M7_//;s/,.*$//')
+                        done
+                        printf "%-24s, " "${buffer[3]}"
+                        printf "%-24s, " "${buffer[4]}"
+                        if [[ "${buffer[3]}" == "MEM_NORMAL_CACHEABLE" ]]; then
+                            printf "%-36s, " "${buffer[5]}"
+                            printf "%-36s, " "${buffer[6]}"
+                        else
+                            printf "%-36s, %-36s, "
+                        fi
+
+                        num8=$(echo "${buffer[7]}" | sed 's/[^0-9]*//g')
+                        printf "0b%08d, " "$(echo "obase=2; $num8" | bc | awk '{printf "%08d", $0}')"
+
+                        if [[ "${buffer[8]}" =~ FALSE ]]; then
+                            printf "FALSE    "
+                        else
+                            printf "TRUE     "
+                        fi
+
+                        printf " */\n"
+
+                        buffer=()
+                        line_count=0
+                    fi
+                done
+            fi
+        fi
+    done
+}
+
 # Header file processing
 echo "// Header files"
 if FindModule "BaseNXP"; then
@@ -123,6 +211,9 @@ if FindModule "Crypto_43_HSE"; then
     if FileExist "$BaseRoot/generate/include/Crypto_43_HSE_*fg.h"; then
         for ObjectId in $(grep -h '^#define CryptoConf_CryptoDriverObject_.*' $BaseRoot/generate/include/Crypto_43_HSE_*fg.h | awk '{ print $2 }'); do
             echo "#define ObjectId_${ObjectId/CryptoConf_CryptoDriverObject_/} $ObjectId"
+        done
+        for KeyElement in $(grep -h '^#define CryptoConf_CryptoKeyElement_.*' $BaseRoot/generate/include/Crypto_43_HSE_*fg.h | awk '{ print $2 }'); do
+            echo "#define KeyElement_${KeyElement/CryptoConf_CryptoKeyElement_/} $KeyElement"
         done
     fi
 else
@@ -335,91 +426,7 @@ if FindModule "IPV_Mpu_M7_Ip"; then
     fi
     echo "    Mpu_M7_Ip_Init($MpuConfig);"
 
-    for file in $BaseRoot/generate/src/Mpu_M7_Ip_*fg.c; do
-        if [ -f "$file" ]; then
-            start_line=$(grep -n "const Mpu_M7_Ip_RegionConfigType" "$file" | cut -d: -f1)
-            start_line=$((start_line + 1))
-            end_line=$(sed -n "${start_line},\$p" "$file" | grep -n "};" | head -n 1 | cut -d: -f1)
-            end_line=$((end_line + start_line - 1))
-            extracted_content=$(sed -n "${start_line},${end_line}p" "$file")
-            cleaned_content=$(echo "$extracted_content" | sed 's|/\*.*\*/||g')
-
-            buffer=()
-            line_count=0
-
-            if [ "$start_line" -gt 1 ]; then
-                echo "    /* MPU Region Configuration in $file */"
-                echo "    /*        ID,  StartAddr,  EndAddress,Size, MemoryType              , AccessRights            , Outer Cache Policy                  , Inner Cache Policy                  , SubRegion , Shareable */"
-                echo "$cleaned_content" | while IFS= read -r line; do
-                    line="${line#"${line%%[![:space:]]*}"}"
-                    line="${line//UL,/}"
-                    line="${line//U,/}"
-                    if [[ "$line" =~ ^[{}] ]]; then
-                        continue
-                    fi
-
-                    buffer+=("$line")
-                    line_count=$((line_count + 1))
-
-                    if [ $line_count -eq 9 ]; then
-                        num1=$(echo "${buffer[0]}" | sed 's/[^0-9]*//g')
-                        printf "    /* Region %2d, " "$num1"
-
-                        num2=$(echo "${buffer[1]}" | sed 's/[^0-9]*//g')
-                        printf "0x%08X - " "$num2"
-
-                        num3=$(echo "${buffer[2]}" | sed 's/[^0-9]*//g')
-
-                        size=$((num3 - num2 + 1))
-                        sizenum=0
-                        num3_calc=1
-                        for i in {0..31}; do
-                            num3_calc=$((num3_calc * 2))
-                            if (( (2 << i) >= size )); then
-                                sizenum=$i
-                                break
-                            fi
-                        done
-
-                        num3_calc=$((num3_calc - 1))
-
-                        if ((sizenum == 0)); then
-                            printf "0x%08X, Err, " "$num3"
-                        else
-                            printf "0x%08X, " "$num3_calc"
-                            printf " %-2d, " "$sizenum"
-                        fi
-
-                        for i in {3..6}; do
-                            buffer[$i]=$(echo "${buffer[$i]}" | sed 's/MPU_M7_//;s/,.*$//')
-                        done
-                        printf "%-24s, " "${buffer[3]}"
-                        printf "%-24s, " "${buffer[4]}"
-                        if [[ "${buffer[3]}" == "MEM_NORMAL_CACHEABLE" ]]; then
-                            printf "%-36s, " "${buffer[5]}"
-                            printf "%-36s, " "${buffer[6]}"
-                        else
-                            printf "%-36s, %-36s, "
-                        fi
-
-                        num8=$(echo "${buffer[7]}" | sed 's/[^0-9]*//g')
-                        printf "0b%08d, " "$(echo "obase=2; $num8" | bc | awk '{printf "%08d", $0}')"
-
-                        if [[ "${buffer[8]}" =~ FALSE ]]; then
-                            printf "FALSE    "
-                        else
-                            printf "TRUE     "
-                        fi
-
-                        printf " */\n"
-
-                        buffer=()
-                        line_count=0
-                    fi
-                done
-            fi
-        fi
-    done
+    PrintMPUInfo
 fi
 
 if FindModule "Siul2_Icu"; then
@@ -630,6 +637,7 @@ if FindModule "Platform"; then
         echo "    // Platform_SetIrqPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
         echo "    // Platform_SetIrq(IRQn_Type, TRUE);"
     done
+    PrintMPUInfo
 else
     if FindModule "IntCtrl_Ip"; then
         Init_Parameter="NULL_PTR"

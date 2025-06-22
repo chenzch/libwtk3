@@ -577,6 +577,10 @@ Crypto_JobStateType Crypto_Task_GetResponse(Crypto_Task_ID Id);
 
 void Crypto_Task_GetRandomBuffer(Crypto_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32_t *pSize);
 
+void Crypto_Task_KeySetValid(Crypto_Task_ID Id, uint32_t KeyElement);
+
+void Crypto_Task_KeySetInvalid(Crypto_Task_ID Id, uint32_t KeyElement);
+
 #elif defined(HSE_IP_H)
 
 // Hse_Ip.h included
@@ -679,7 +683,7 @@ hseSrvResponse_t Hse_Task_MasterRequest(Hse_Task_ID Id, uint8_t u8MuInstance, ui
 
 hseSrvResponse_t Hse_Task_SyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, uint32_t u32Timeout);
 
-hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance);
+hseSrvResponse_t Hse_Task_AsyncRequest(Hse_Task_ID Id, uint8_t u8MuInstance, bool useInterrupt);
 
 hseSrvResponse_t Hse_Task_GetResponse(Hse_Task_ID Id, uint8_t u8MuInstance);
 
