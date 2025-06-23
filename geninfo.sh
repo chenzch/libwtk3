@@ -182,6 +182,11 @@ if FindModule "Rm"; then
     echo "#include \"CDD_Rm.h\""
 fi
 
+if FindModule "Lpi2c"; then
+    echo "#include \"Lpi2c_Ip.h\""
+    echo "#include \"Lpi2c_Ip_Irq.h\""
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "#include \"Crypto_43_HSE.h\""
     echo "#include \"Crypto_43_HSE_Util.h\""
@@ -603,6 +608,27 @@ if FindModule "Rm"; then
     echo "    Rm_Init($Rm_Parameter);"
 fi
 
+if FindModule "Lpi2c"; then
+    echo "    {
+        static LPI2C_Type * const Lpi2c_Ip_pxBase[LPI2C_INSTANCE_COUNT] = IP_LPI2C_BASE_PTRS;
+        Lpi2c_Ip_StatusType status = (Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS;"
+    for MasterChannel in $(grep -h '^extern const Lpi2c_Ip_MasterConfigType .*;' $BaseRoot/generate/include/Lpi2c_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+        echo "        status = Lpi2c_Ip_MasterInit(LPI2C_CHANNEL_${MasterChannel/I2c_Lpi2cMasterChannel/}, &$MasterChannel);"
+        echo "        Lpi2c_Ip_pxBase[LPI2C_CHANNEL_${MasterChannel/I2c_Lpi2cMasterChannel/}]->MCR |= LPI2C_MCR_DBGEN_MASK;"
+        echo "#if !defined(NDEBUG)
+        DevAssert((Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS == status);
+#endif /* #if !defined(NDEBUG) */"
+    done
+    for SlaveChannel in $(grep -h '^extern const Lpi2c_Ip_SlaveConfigType .*;' $BaseRoot/generate/include/Lpi2c_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+        echo "        status = Lpi2c_Ip_SlaveInit(LPI2C_CHANNEL_${SlaveChannel/I2c_Lpi2cSlaveChannel/}, &$SlaveChannel);"
+        echo "        Lpi2c_Ip_pxBase[LPI2C_CHANNEL_${SlaveChannel/I2c_Lpi2cSlaveChannel/}]->MCR |= LPI2C_MCR_DBGEN_MASK;"
+        echo "#if !defined(NDEBUG)
+        DevAssert((Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS == status);
+#endif /* #if !defined(NDEBUG) */"
+    done
+    echo "    }"
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "    /* Initialize Crypto driver */
     Crypto_43_HSE_Init(NULL_PTR);
@@ -631,7 +657,7 @@ fi
 # Processing Interrupts
 if FindModule "Platform"; then
     echo "    Platform_Init(NULL_PTR);"
-    for i in $(grep "ISR(.*);" RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }'); do
+    for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
         echo
         echo "    // Platform_InstallIrqHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
         echo "    // Platform_SetIrqPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
@@ -650,7 +676,7 @@ else
 #if !defined(NDEBUG)
         DevAssert((IntCtrl_Ip_StatusType)INTCTRL_IP_STATUS_SUCCESS == status);
 #endif /* #if !defined(NDEBUG) */"
-        for i in $(grep "ISR(.*);" RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }'); do
+        for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
             echo
             echo "        // IntCtrl_Ip_InstallHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
             echo "        // IntCtrl_Ip_SetPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
