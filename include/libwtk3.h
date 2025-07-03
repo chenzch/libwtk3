@@ -95,6 +95,44 @@ typedef union {
 
 #define sBafVersion (*(uint64_t *)0x4039C020UL)
 
+static inline void JumpToApplication(uint32_t BaseAddress) {
+    uint32_t* pIntVector = (uint32_t *)BaseAddress;
+    uint32_t userSP = pIntVector[0];
+    register uint32_t userEntry = pIntVector[1];
+    __asm ("cpsid i \t\n");
+
+    /* Set up stack pointer */
+    __asm (
+		"msr msp, %[inputSP] \t\n"
+		"msr psp, %[inputSP] \t\n"
+    	:
+    	: [inputSP] "r" (userSP)
+    );
+
+    /* Jump to application PC (r1) */
+    __asm (
+		"mov pc, %[inputEntry] \t\n"
+    	:
+    	: [inputEntry] "r" (userEntry)
+    );
+}
+
+// Clock_Ip.h included
+#if defined(CLOCK_IP_H)
+static inline Clock_Ip_StatusType Clock_Ip_Init_Check_Rtc(Clock_Ip_ClockConfigType const * Config) {
+    if (0 == (IP_MC_ME->PRTN1_COFB1_STAT & MC_ME_PRTN1_COFB1_STAT_BLOCK34_MASK)) {
+        IP_MC_ME->PRTN1_COFB1_CLKEN |= MC_ME_PRTN1_COFB1_CLKEN_REQ34_MASK;
+        IP_MC_ME->PRTN1_PCONF |= MC_ME_PRTN1_PCONF_PCE_MASK;
+        IP_MC_ME->PRTN1_PUPD |= MC_ME_PRTN1_PUPD_PCUD_MASK;
+        IP_MC_ME->CTL_KEY = 0x5AF0U;
+        IP_MC_ME->CTL_KEY = 0xA50FU;
+    }
+    return Clock_Ip_Init(Config);
+}
+
+#define Clock_Ip_Init(Config) Clock_Ip_Init_Check_Rtc(Config)
+#endif
+
 // Siul2_Dio_Ip.h included
 #if defined(SIUL2_DIO_IP_H)
 #define SIUL2_DIO_PIN(Port, Pin)                                                                   \
@@ -697,6 +735,11 @@ bool Hse_GetRandomBuffer(Hse_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32
 
 void Hse_ActivatePassiveBlock(Hse_Task_ID Id);
 
+#endif
+
+#if defined(WKPU_IP_H)
+#define WKPU_SRC_INNER(X) (X)
+#define WKPU_SRC_OUTER(X) ((X) + 4)
 #endif
 
 #if defined(__cplusplus)

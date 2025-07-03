@@ -235,6 +235,43 @@ static HSE_Context gHSEContext[HSE_MAX_TASK_COUNT];
     fi
 fi
 
+if FindModule "Platform"; then
+    echo
+else
+    if FindModule "IntCtrl_Ip"; then
+        if FindModule "Siul2_Icu"; then
+            echo "#if ((defined SIUL2_ICU_IRQ_CH_0_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_1_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_2_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_3_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_4_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_5_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_6_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_7_ISR_USED))
+ISR(SIUL2_EXT_IRQ_0_7_ISR);
+#endif
+
+#if ((defined SIUL2_ICU_IRQ_CH_8_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_9_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_10_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_11_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_12_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_13_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_14_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_15_ISR_USED))
+ISR(SIUL2_EXT_IRQ_8_15_ISR);
+#endif
+
+#if ((defined SIUL2_ICU_IRQ_CH_16_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_17_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_18_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_19_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_20_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_21_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_22_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_23_ISR_USED))
+ISR(SIUL2_EXT_IRQ_16_23_ISR);
+#endif
+
+#if ((defined SIUL2_ICU_IRQ_CH_24_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_25_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_26_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_27_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_28_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_29_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_30_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_31_ISR_USED))
+ISR(SIUL2_EXT_IRQ_24_31_ISR);
+#endif"
+        fi
+    fi
+fi
+
+
 echo
 echo "// Initialization"
 echo "void wtk3_init(void) {"
@@ -590,9 +627,14 @@ if FindModule "Wkpu"; then
     for file in $BaseRoot/generate/src/Wkpu_Ip_*fg.c; do
         if [ -f "$file" ]; then
             ChannelName=$(grep -A 1 "Wkpu HW Channel used by the Icu channel" "$file" | grep -v "Wkpu HW Channel used by the Icu channel" | grep -oE '[0-9]+')
-            echo "        Wkpu_Ip_GetInputState(0, $ChannelName);
-        Wkpu_Ip_EnableInterrupt(0, $ChannelName);
-        Wkpu_Ip_EnableNotification($ChannelName);"
+            if [ "$ChannelName" -ge 4 ]; then
+                ChannelString="WKPU_SRC_OUTER($((ChannelName - 4)))"
+            else
+                ChannelString="WKPU_SRC_INNER($ChannelName)"
+            fi
+            echo "        Wkpu_Ip_GetInputState(0, $ChannelString);
+        Wkpu_Ip_EnableInterrupt(0, $ChannelString);
+        Wkpu_Ip_EnableNotification($ChannelString);"
         fi
     done
     echo "    }"
@@ -657,12 +699,12 @@ fi
 # Processing Interrupts
 if FindModule "Platform"; then
     echo "    Platform_Init(NULL_PTR);"
-    for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
-        echo
-        echo "    // Platform_InstallIrqHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
-        echo "    // Platform_SetIrqPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
-        echo "    // Platform_SetIrq(IRQn_Type, TRUE);"
-    done
+    # for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
+    #     echo
+    #     echo "    // Platform_InstallIrqHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
+    #     echo "    // Platform_SetIrqPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
+    #     echo "    // Platform_SetIrq(IRQn_Type, TRUE);"
+    # done
     PrintMPUInfo
 else
     if FindModule "IntCtrl_Ip"; then
@@ -676,12 +718,49 @@ else
 #if !defined(NDEBUG)
         DevAssert((IntCtrl_Ip_StatusType)INTCTRL_IP_STATUS_SUCCESS == status);
 #endif /* #if !defined(NDEBUG) */"
-        for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
-            echo
-            echo "        // IntCtrl_Ip_InstallHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
-            echo "        // IntCtrl_Ip_SetPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
-            echo "        // IntCtrl_Ip_EnableIrq(IRQn_Type);"
-        done
+        # for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
+        #     echo
+        #     echo "        // IntCtrl_Ip_InstallHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
+        #     echo "        // IntCtrl_Ip_SetPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
+        #     echo "        // IntCtrl_Ip_EnableIrq(IRQn_Type);"
+        # done
+        if FindModule "Siul2_Icu"; then
+            echo "#if ((defined SIUL2_ICU_IRQ_CH_0_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_1_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_2_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_3_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_4_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_5_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_6_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_7_ISR_USED))
+        IntCtrl_Ip_InstallHandler(SIUL_0_IRQn, SIUL2_EXT_IRQ_0_7_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(SIUL_0_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(SIUL_0_IRQn);
+#endif
+
+#if ((defined SIUL2_ICU_IRQ_CH_8_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_9_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_10_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_11_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_12_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_13_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_14_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_15_ISR_USED))
+        IntCtrl_Ip_InstallHandler(SIUL_1_IRQn, SIUL2_EXT_IRQ_8_15_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(SIUL_1_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(SIUL_1_IRQn);
+#endif
+
+#if ((defined SIUL2_ICU_IRQ_CH_16_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_17_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_18_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_19_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_20_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_21_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_22_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_23_ISR_USED))
+        IntCtrl_Ip_InstallHandler(SIUL_2_IRQn, SIUL2_EXT_IRQ_16_23_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(SIUL_2_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(SIUL_2_IRQn);
+#endif
+
+#if ((defined SIUL2_ICU_IRQ_CH_24_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_25_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_26_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_27_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_28_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_29_ISR_USED) || \\
+     (defined SIUL2_ICU_IRQ_CH_30_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_31_ISR_USED))
+        IntCtrl_Ip_InstallHandler(SIUL_3_IRQn, SIUL2_EXT_IRQ_24_31_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(SIUL_3_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(SIUL_3_IRQn);
+#endif"
+        fi
         echo "
     }"
     fi
