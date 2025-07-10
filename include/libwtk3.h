@@ -96,30 +96,24 @@ typedef union {
 #define sBafVersion (*(uint64_t *)0x4039C020UL)
 
 static inline void JumpToApplication(uint32_t BaseAddress) {
-    uint32_t* pIntVector = (uint32_t *)BaseAddress;
-    uint32_t userSP = pIntVector[0];
-    register uint32_t userEntry = pIntVector[1];
-    __asm ("cpsid i \t\n");
+    uint32_t         *pIntVector = (uint32_t *)BaseAddress;
+    uint32_t          userSP     = pIntVector[0];
+    register uint32_t userEntry  = pIntVector[1];
+    __asm("cpsid i \t\n");
 
     /* Set up stack pointer */
-    __asm (
-		"msr msp, %[inputSP] \t\n"
-		"msr psp, %[inputSP] \t\n"
-    	:
-    	: [inputSP] "r" (userSP)
-    );
+    __asm("msr msp, %[inputSP] \t\n"
+          "msr psp, %[inputSP] \t\n"
+          :
+          : [inputSP] "r"(userSP));
 
     /* Jump to application PC (r1) */
-    __asm (
-		"mov pc, %[inputEntry] \t\n"
-    	:
-    	: [inputEntry] "r" (userEntry)
-    );
+    __asm("mov pc, %[inputEntry] \t\n" : : [inputEntry] "r"(userEntry));
 }
 
 // Clock_Ip.h included
 #if defined(CLOCK_IP_H)
-static inline Clock_Ip_StatusType Clock_Ip_Init_Check_Rtc(Clock_Ip_ClockConfigType const * Config) {
+static inline Clock_Ip_StatusType Clock_Ip_Init_Check_Rtc(Clock_Ip_ClockConfigType const *Config) {
     if (0 == (IP_MC_ME->PRTN1_COFB1_STAT & MC_ME_PRTN1_COFB1_STAT_BLOCK34_MASK)) {
         IP_MC_ME->PRTN1_COFB1_CLKEN |= MC_ME_PRTN1_COFB1_CLKEN_REQ34_MASK;
         IP_MC_ME->PRTN1_PCONF |= MC_ME_PRTN1_PCONF_PCE_MASK;
@@ -588,7 +582,87 @@ static inline uint32_t Dma_Control_DisableAutoRequest(Dma_Ip_LogicChannelTransfe
 
 #endif
 
+#if defined(GMAC_IP_H)
+/* Code from Eth_43_GMAC_Ipw_SelectPhyInterface */
+static inline Gmac_Ip_StatusType Gmac_Ip_Init_With_Phy(uint8                      Instance,
+                                                       const Gmac_CtrlConfigType *Config) {
+#define ETH_IPW_IP_EMAC (0U)
+#define ETH_IPW_IP_GMAC (1U)
+
+    Gmac_Ip_MiiModeType ModeSelect = Config->Gmac_pCtrlConfig->MiiMode;
+#if (ETH_IPW_IP_EMAC == GMAC_IP_FEATURE_ORIGIN)
+    if (GMAC_MII_MODE == ModeSelect) {
+        IP_DCM_GPR->DCMRWF1 = (IP_DCM_GPR->DCMRWF1 & ~DCM_GPR_DCMRWF1_MAC_CONF_SEL_MASK) |
+                              DCM_GPR_DCMRWF1_MAC_CONF_SEL(0U);
+    } else if (GMAC_RMII_MODE == ModeSelect) {
+#if defined(S32K396) || defined(S32K394) || defined(S32K376) || defined(S32K374)
+        IP_DCM_GPR->DCMRWF1 = (IP_DCM_GPR->DCMRWF1 & ~DCM_GPR_DCMRWF1_MAC_CONF_SEL_MASK) |
+                              DCM_GPR_DCMRWF1_MAC_CONF_SEL(1U);
+#else
+        IP_DCM_GPR->DCMRWF1 = (IP_DCM_GPR->DCMRWF1 & ~DCM_GPR_DCMRWF1_MAC_CONF_SEL_MASK) |
+                              DCM_GPR_DCMRWF1_MAC_CONF_SEL(2U);
+#endif
+    }
+#endif
+#if (ETH_IPW_IP_GMAC == GMAC_IP_FEATURE_ORIGIN)
+    if (GMAC_MII_MODE == ModeSelect) {
+        IP_DCM_GPR->DCMRWF1 = (IP_DCM_GPR->DCMRWF1 & ~DCM_GPR_DCMRWF1_MAC_CONF_SEL_MASK) |
+                              DCM_GPR_DCMRWF1_MAC_CONF_SEL(0U);
+    } else if (GMAC_RMII_MODE == ModeSelect) {
+        IP_DCM_GPR->DCMRWF1 = (IP_DCM_GPR->DCMRWF1 & ~DCM_GPR_DCMRWF1_MAC_CONF_SEL_MASK) |
+                              DCM_GPR_DCMRWF1_MAC_CONF_SEL(2U);
+    }
+#if FEATURE_GMAC_RGMII_EN
+    else {
+#if defined(S32K388)
+        /* Enables the MAC_TX_RMII_CLK loopback and select RGMII mode. */
+        IP_DCM_GPR->DCMRWF1 = (IP_DCM_GPR->DCMRWF1 & ~DCM_GPR_DCMRWF1_MAC_CONF_SEL_MASK) |
+                              DCM_GPR_DCMRWF1_MAC_CONF_SEL(1U) |
+                              DCM_GPR_DCMRWF1_MAC_TX_RMII_CLK_LPBCK_EN(1U);
+#else
+        /* TODO: replace setting bit 31 with macro when header file S32K358_DCM_GPR.h is updated following new version of RM. */
+        IP_DCM_GPR->DCMRWF1 = (IP_DCM_GPR->DCMRWF1 & ~DCM_GPR_DCMRWF1_MAC_CONF_SEL_MASK) |
+                              DCM_GPR_DCMRWF1_MAC_CONF_SEL(1U) | ((uint32)1U << 31U);
+#endif
+    }
+#endif
+#endif
+    return Gmac_Ip_Init(Instance, Config);
+}
+
+#define Gmac_Ip_Init(Instance, Config) Gmac_Ip_Init_With_Phy(Instance, Config)
+#endif
+
 #if defined(CRYPTO_43_HSE_H)
+
+typedef union {
+    hseStatus_t status;
+    struct {
+        bool reserved : 1;              // bit 0
+        bool SHESecureBoot : 1;         // bit 1
+        bool SHESecureBootInit : 1;     // bit 2
+        bool SHESecureBootFinished : 1; // bit 3
+        bool SHESecureBootOK : 1;       // bit 4
+        bool RNGInitOK : 1;             // bit 5
+        bool HostDebuggerActive : 1;    // bit 6
+        bool HSEDebuggerActive : 1;     // bit 7
+        bool InitOK : 1;                // bit 8
+        bool InstallOK : 1;             // bit 9
+        bool BootOK : 1;                // bit 10
+        bool CustSuperUser : 1;         // bit 11
+        bool OEMSuperUser : 1;          // bit 12
+#ifdef HSE_SPT_FLASHLESS_DEV
+        bool PublishSysImage : 1; // bit 13
+        bool PrimarySysImage : 1; // bit 14
+        bool BackupSysImage : 1;  // bit 15
+#else
+        bool FWUpdateInProgress : 1;           // bit 13
+        bool PublishNVMKeystoreRAMToFlash : 1; // bit 14
+#endif
+    } B;
+} Hse_Status;
+
+extern hseStatus_t Hse_Ip_GetHseStatus (uint8_t u8MuInstance);
 
 typedef struct {
     bool                        isUsed;
@@ -613,7 +687,8 @@ Std_ReturnType Crypto_Task_AsyncRequest(uint32_t ObjectId, Crypto_Task_ID Id);
 
 Crypto_JobStateType Crypto_Task_GetResponse(Crypto_Task_ID Id);
 
-void Crypto_Task_GetRandomBuffer(Crypto_Task_ID Id, uint8_t Level, uint8_t *pBuffer, uint32_t *pSize);
+void Crypto_Task_GetRandomBuffer(Crypto_Task_ID Id, uint8_t Level, uint8_t *pBuffer,
+                                 uint32_t *pSize);
 
 void Crypto_Task_KeySetValid(Crypto_Task_ID Id, uint32_t KeyElement);
 
@@ -701,9 +776,9 @@ typedef struct {
 } HSE_Context;
 
 typedef struct {
-    bool isUsed;
-    Hse_Ip_ReqType     SrvRequest;
-    hseSrvResponse_t   SrvResponse;
+    bool             isUsed;
+    Hse_Ip_ReqType   SrvRequest;
+    hseSrvResponse_t SrvResponse;
 } HSE_Task;
 
 typedef uint8_t Hse_Task_ID;
@@ -741,6 +816,84 @@ void Hse_ActivatePassiveBlock(Hse_Task_ID Id);
 #define WKPU_SRC_INNER(X) (X)
 #define WKPU_SRC_OUTER(X) ((X) + 4)
 #endif
+
+typedef struct {
+    uint16_t CrystalFrequency : 16;
+    uint16_t Reserved : 4;
+    uint16_t EOCV : 8;
+    uint16_t GMSEL : 4;
+    uint32_t MagicNumber;
+} FXOSCConfig_Type;
+
+typedef struct {
+    uint32_t Value;
+    uint32_t Key;
+} DCFRecord_Type;
+
+typedef struct {
+    uint64_t         HSE_UsageFlag;        /* Offset : 0x00 */
+    uint64_t         Reserved1[7];         /* Offset : 0x08 */
+    uint64_t         ChipID;               /* Offset : 0x40 */
+    uint64_t         Reserved2;            /* Offset : 0x48 */
+    FXOSCConfig_Type FXOSC_Config;         /* Offset : 0x50 */
+    uint64_t         Partial_ABSwap;       /* Offset : 0x58 */
+    uint64_t         JDCClkDisable;        /* Offset : 0x60 */
+    uint64_t         Reserved3[3];         /* Offset : 0x68 */
+    uint8_t          DebugPassword[32];    /* Offset : 0x80 */
+    uint64_t         Reserved4[88];        /* Offset : 0xA0 */
+    uint8_t          HSEDebugPassword[32]; /* Offset : 0x360 */
+    uint64_t         Reserved5[112];       /* Offset : 0x380 */
+    uint64_t         DCF_Start;            /* Offset : 0x700 */
+    DCFRecord_Type   DCF_Records[671];     /* Offset : 0x708 */
+} UTEST_Type, *UTEST_MemMapPtr;
+
+/** Peripheral UTEST base pointer */
+#define IP_UTEST_BASE (0x1B000000u)
+/** Peripheral UTEST base pointer */
+#define IP_UTEST ((UTEST_Type *)IP_UTEST_BASE)
+
+#define HSE_UNUSED_FLAG     (0xFFFFFFFFFFFFFFFFULL)
+#define PARTIAL_ABSWAP_FLAG (0xDABADABADABADABAULL)
+#define DCF_START_FLAG      (0x0000000005AA55AFULL)
+
+#define DCF_KEY_UTEST_MISC          (0x00100004UL)
+#define DCF_KEY_RESET_PAD_DEDICATED (0x00100008UL)
+#define DCF_KEY_DEST_RST_ESC        (0x0010000CUL)
+#define DCF_KEY_SDI0                (0x00100010UL)
+#define DCF_KEY_SDI1                (0x00100014UL)
+#define DCF_KEY_SDI2                (0x00100018UL)
+#define DCF_KEY_SDI3                (0x0010001CUL)
+#define DCF_KEY_SDI4                (0x00100020UL)
+#define DCF_KEY_SDI5                (0x00100024UL)
+#define DCF_KEY_SDI6                (0x00100028UL)
+#define DCF_KEY_SDI7                (0x0010002CUL)
+#define DCF_KEY_SDI8                (0x00100030UL)
+#define DCF_KEY_SDI9                (0x00100034UL)
+#define DCF_KEY_SDI10               (0x00100038UL)
+#define DCF_KEY_SDI11               (0x0010003CUL)
+#define DCF_KEY_SDI12               (0x00100040UL)
+#define DCF_KEY_SDI13               (0x00100044UL)
+#define DCF_KEY_SDI14               (0x00100048UL)
+#define DCF_KEY_SDI15               (0x0010004CUL)
+#define DCF_KEY_INSTANCEID          (0x00100050UL)
+
+static inline uint8_t *UTEST_GetDebugPassword(void) {
+    if (IP_UTEST->HSE_UsageFlag == HSE_UNUSED_FLAG) {
+        return &IP_UTEST->DebugPassword[0];
+    } else {
+        return &IP_UTEST->HSEDebugPassword[0];
+    }
+}
+
+static inline DCFRecord_Type *UTEST_GetFreeDCFRecord(void) {
+    for (uint32_t index = 0; index < ARRAY_SIZE(IP_UTEST->DCF_Records); index++) {
+        if ((IP_UTEST->DCF_Records[index].Key == 0xFFFFFFFFUL) &&
+            (IP_UTEST->DCF_Records[index].Value == 0xFFFFFFFFUL)) {
+            return &IP_UTEST->DCF_Records[index];
+        }
+    }
+    return NULL;
+}
 
 #if defined(__cplusplus)
 }

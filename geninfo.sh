@@ -178,18 +178,19 @@ if FindModule "Wkpu"; then
     echo "#include \"Wkpu_Ip.h\""
 fi
 
-if FindModule "Rm"; then
-    echo "#include \"CDD_Rm.h\""
-fi
-
 if FindModule "Lpi2c"; then
     echo "#include \"Lpi2c_Ip.h\""
     echo "#include \"Lpi2c_Ip_Irq.h\""
 fi
 
+if FindModule "Gmac"; then
+    echo "#include \"Gmac_Ip.h\""
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "#include \"Crypto_43_HSE.h\""
     echo "#include \"Crypto_43_HSE_Util.h\""
+    echo "#include \"Hse_Ip_Cfg.h\""
 else
     if FindModule "Hse"; then
         echo "#include \"Hse_Ip.h\""
@@ -236,7 +237,14 @@ static HSE_Context gHSEContext[HSE_MAX_TASK_COUNT];
 fi
 
 if FindModule "Platform"; then
-    echo
+    if FindModule "Crypto_43_HSE"; then
+        echo "ISR(Mu_Ip_Mu0_OredRx_Isr);
+
+#if (HSE_IP_NUM_OF_MU_INSTANCES > 1U)
+ISR(Mu_Ip_Mu1_OredRx_Isr);
+#endif /* (HSE_IP_NUM_OF_MU_INSTANCES > 1U) */
+"
+    fi
 else
     if FindModule "IntCtrl_Ip"; then
         if FindModule "Siul2_Icu"; then
@@ -641,15 +649,6 @@ if FindModule "Wkpu"; then
 
 fi
 
-if FindModule "Rm"; then
-    Rm_Parameter="NULL_PTR"
-    if FileExist "$BaseRoot/generate/include/CDD_Rm_*fg.h"; then
-        Rm_Parameter=$(grep -h 'extern const Rm_ConfigType .*;' $BaseRoot/generate/include/CDD_Rm_*fg.h | tr ';' ' ' | awk '{ print $4 }');
-        Rm_Parameter="&$Rm_Parameter"
-    fi
-    echo "    Rm_Init($Rm_Parameter);"
-fi
-
 if FindModule "Lpi2c"; then
     echo "    {
         static LPI2C_Type * const Lpi2c_Ip_pxBase[LPI2C_INSTANCE_COUNT] = IP_LPI2C_BASE_PTRS;
@@ -669,6 +668,31 @@ if FindModule "Lpi2c"; then
 #endif /* #if !defined(NDEBUG) */"
     done
     echo "    }"
+fi
+
+if FindModule "Gmac"; then
+    if FileExist "$BaseRoot/generate/include/Gmac_Ip_*fg.h"; then
+        GmacConfig=$(grep -h 'extern const Gmac_CtrlConfigType Gmac_0.*;' $BaseRoot/generate/include/Gmac_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        if [ -n "$GmacConfig" ]; then
+            GmacConfig="&$GmacConfig"
+            echo "    {
+        Gmac_Ip_StatusType status = Gmac_Ip_Init(INST_GMAC_0, $GmacConfig);
+#if !defined(NDEBUG)
+        DevAssert((Gmac_Ip_StatusType)GMAC_STATUS_SUCCESS == status);
+#endif /* #if !defined(NDEBUG) */
+    }"
+        fi
+        GmacConfig=$(grep -h 'extern const Gmac_CtrlConfigType Gmac_1.*;' $BaseRoot/generate/include/Gmac_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        if [ -n "$GmacConfig" ]; then
+            GmacConfig="&$GmacConfig"
+            echo "    {
+        Gmac_Ip_StatusType status = Gmac_Ip_Init(INST_GMAC_1, $GmacConfig);
+#if !defined(NDEBUG)
+        DevAssert((Gmac_Ip_StatusType)GMAC_STATUS_SUCCESS == status);
+#endif /* #if !defined(NDEBUG) */
+    }"
+        fi
+    fi
 fi
 
 if FindModule "Crypto_43_HSE"; then
@@ -706,6 +730,18 @@ if FindModule "Platform"; then
     #     echo "    // Platform_SetIrq(IRQn_Type, TRUE);"
     # done
     PrintMPUInfo
+    if FindModule "Crypto_43_HSE"; then
+        echo "    Platform_InstallIrqHandler(HSE_MU0_RX_IRQn, Mu_Ip_Mu0_OredRx_Isr, NULL_PTR); // Parameter 3 is output of current ISR
+    Platform_SetIrqPriority(HSE_MU0_RX_IRQn, 0); // 0 highest -> 15 lowest
+    Platform_SetIrq(HSE_MU0_RX_IRQn, TRUE);
+
+#if (HSE_IP_NUM_OF_MU_INSTANCES > 1U)
+    Platform_InstallIrqHandler(HSE_MU1_RX_IRQn, Mu_Ip_Mu1_OredRx_Isr, NULL_PTR); // Parameter 3 is output of current ISR
+    Platform_SetIrqPriority(HSE_MU1_RX_IRQn, 0); // 0 highest -> 15 lowest
+    Platform_SetIrq(HSE_MU1_RX_IRQn, TRUE);
+#endif /* (HSE_IP_NUM_OF_MU_INSTANCES > 1U) */"
+    fi
+
 else
     if FindModule "IntCtrl_Ip"; then
         Init_Parameter="NULL_PTR"
