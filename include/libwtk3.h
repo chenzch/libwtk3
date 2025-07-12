@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 #if !defined(FOREACH)
-#define FOREACH(index, array) for (uint32_t(index) = 0; (index) < ARRAY_SIZE(a); ++(index))
+#define FOREACH(index, array) for ((index) = 0; (index) < ARRAY_SIZE(array); ++(index))
 #endif
 
 #if !defined(BIT)
@@ -125,6 +125,16 @@ static inline Clock_Ip_StatusType Clock_Ip_Init_Check_Rtc(Clock_Ip_ClockConfigTy
 }
 
 #define Clock_Ip_Init(Config) Clock_Ip_Init_Check_Rtc(Config)
+#endif
+
+#if defined(CPU_S32K310) || defined(CPU_S32K311) || defined(CPU_S32K312) || defined(CPU_S32K314) || defined(CPU_S32K341) || defined(CPU_S32K342) || defined(CPU_S32K344) || defined(CPU_S32K348)
+#define WTK3_GetCoreID() ((uint8_t)0)
+#elif defined(CPU_S32K322) || defined(CPU_S32K324) || defined(CPU_S32K328) || defined(CPU_S32K336) || defined(CPU_S32K338) || defined(CPU_S32K374) || defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K396) || defined(CPU_S32K388)
+#define WTK3_GetCoreID() ((uint8_t)(IP_MSCM->CPXNUM & MSCM_CPXNUM_CPN_MASK))
+#elif defined(CPU_S32K356) || defined(CPU_S32K358)
+#define WTK3_GetCoreID() ((uint8_t)((IP_MSCM->CPXNUM & MSCM_CPXNUM_CPN_MASK) >> 1))
+#else
+#error "No platform is selected. At least one platform should be selected."
 #endif
 
 // Siul2_Dio_Ip.h included
@@ -662,7 +672,7 @@ typedef union {
     } B;
 } Hse_Status;
 
-extern hseStatus_t Hse_Ip_GetHseStatus (uint8_t u8MuInstance);
+extern hseStatus_t Hse_Ip_GetHseStatus(uint8_t u8MuInstance);
 
 typedef struct {
     bool                        isUsed;
@@ -840,9 +850,13 @@ typedef struct {
     uint64_t         JDCClkDisable;        /* Offset : 0x60 */
     uint64_t         Reserved3[3];         /* Offset : 0x68 */
     uint8_t          DebugPassword[32];    /* Offset : 0x80 */
-    uint64_t         Reserved4[88];        /* Offset : 0xA0 */
+    uint64_t         Reserved4[44];        /* Offset : 0xA0 */
+    uint64_t         DebugAuthFlag;        /* Offset : 0x200 This flag indicates whether changing the secure debug authentication mode from Password to challenge Response (CR) */
+    uint64_t         IVT_XRDC_GMAC;        /* Offset : 0x208 This flag indicates whether enabling the IVT AUTH feature */
+    uint64_t         LCSlots[6][2];        /* Offset : 0x210 */
+    uint64_t         Reserved5[30];        /* Offset : 0x270 */
     uint8_t          HSEDebugPassword[32]; /* Offset : 0x360 */
-    uint64_t         Reserved5[112];       /* Offset : 0x380 */
+    uint64_t         Reserved6[112];       /* Offset : 0x380 */
     uint64_t         DCF_Start;            /* Offset : 0x700 */
     DCFRecord_Type   DCF_Records[671];     /* Offset : 0x708 */
 } UTEST_Type, *UTEST_MemMapPtr;
@@ -855,6 +869,17 @@ typedef struct {
 #define HSE_UNUSED_FLAG     (0xFFFFFFFFFFFFFFFFULL)
 #define PARTIAL_ABSWAP_FLAG (0xDABADABADABADABAULL)
 #define DCF_START_FLAG      (0x0000000005AA55AFULL)
+#define LC_SLOT_ERASED      (0xFFFFFFFFFFFFFFFFULL)
+#define LC_SLOT_ACTIVE      (0x55AA50AF55AA50AFULL)
+
+#define LC_SLOT_MCU_PRODUCTION       (0x0U)
+#define LC_SLOT_CUSTOMER_DELIVERY    (0x1U)
+#define LC_SLOT_OEM_PRODUCTION       (0x2U)
+#define LC_SLOT_IN_FIELD             (0x3U)
+#define LC_SLOT_PRE_FAILURE_ANALYSIS (0x4U)
+#define LC_SLOT_FAILURE_ANALYSIS     (0x5U)
+#define LC_SLOT_VALID                (0x0U)
+#define LC_SLOT_INVALID              (0x1U)
 
 #define DCF_KEY_UTEST_MISC          (0x00100004UL)
 #define DCF_KEY_RESET_PAD_DEDICATED (0x00100008UL)
@@ -885,6 +910,15 @@ static inline uint8_t *UTEST_GetDebugPassword(void) {
     }
 }
 
+static inline uint8_t UTEST_GetCurrentLifeCycle(void) {
+    for (uint8_t index = LC_SLOT_MCU_PRODUCTION; index <= LC_SLOT_FAILURE_ANALYSIS; ++index) {
+        if (IP_UTEST->LCSlots[index][LC_SLOT_VALID] == LC_SLOT_ACTIVE) {
+            return index;
+        }
+    }
+    return LC_SLOT_IN_FIELD; // Default to IN_FIELD if no active slot found
+}
+
 static inline DCFRecord_Type *UTEST_GetFreeDCFRecord(void) {
     for (uint32_t index = 0; index < ARRAY_SIZE(IP_UTEST->DCF_Records); index++) {
         if ((IP_UTEST->DCF_Records[index].Key == 0xFFFFFFFFUL) &&
@@ -894,6 +928,28 @@ static inline DCFRecord_Type *UTEST_GetFreeDCFRecord(void) {
     }
     return NULL;
 }
+
+typedef struct {
+    uint32_t  Header;                   /* Header of boot header structure */
+    uint32_t  BootConfig;               /* Boot Configuration Word */
+    uint32_t  Reserved3;                /* Reserved */
+    uint32_t *CM7_0_StartAddress;       /* Start address of application on CM7_0 core */
+    uint32_t  Reserved4;                /* Reserved */
+    uint32_t *CM7_1_StartAddress;       /* Start address of application on CM7_1 core */
+    uint32_t  Reserved5;                /* Reserved */
+    uint32_t *CM7_2_StartAddress;       /* Start address of application on CM7_2 core */
+    uint32_t *XRDCConfig_StartAddress;  /* Address of XRDC configuration data */
+    uint32_t *LCConfig;                 /* Address of LC configuration */
+    uint32_t  Reserved1;                /* Reserved */
+    uint32_t *HseFwHeader_StartAddress; /* Start address of HSE-FW image */
+    uint8_t   Reserved[192];            /* Reserved for future use */
+    uint8_t   CMAC[16];                 /* CMAC */
+} IVT_Type, *IVT_MemMapPtr;
+
+#define IVT_HEADER_MAGIC         (0x5AA55AA5UL) /* Magic number for IVT header */
+#define IVT_EMPTY_PTR            (0xFFFFFFFFUL) /* Empty pointer value in IVT */
+#define LC_CONFIG_OEM_PRODUCTION (0xDADADADAUL) /* LC configuration for OEM production */
+#define LC_CONFIG_IN_FIELD       (0xBABABABAUL) /* LC configuration for in-field */
 
 #if defined(__cplusplus)
 }

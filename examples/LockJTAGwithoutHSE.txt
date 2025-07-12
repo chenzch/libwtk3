@@ -1,0 +1,160 @@
+/*==================================================================================================
+* Project : RTD AUTOSAR 4.7
+* Platform : CORTEXM
+* Peripheral : S32K3XX
+* Dependencies : none
+*
+* Autosar Version : 4.7.0
+* Autosar Revision : ASR_REL_4_7_REV_0000
+* Autosar Conf.Variant :
+* SW Version : 6.0.0
+* Build Version : S32K3_RTD_6_0_0_D2506_ASR_REL_4_7_REV_0000_20250610
+*
+* Copyright 2020 - 2025 NXP
+*
+* NXP Confidential and Proprietary. This software is owned or controlled by NXP and may only be
+*   used strictly in accordance with the applicable license terms.  By expressly
+*   accepting such terms or by downloading, installing, activating and/or otherwise
+*   using the software, you are agreeing that you have read, and that you agree to
+*   comply with and are bound by, such license terms.  If you do not agree to be
+*   bound by the applicable license terms, then you may not retain, install,
+*   activate or otherwise use the software.
+==================================================================================================*/
+
+/**
+ *   @file main.c
+ *
+ *   @addtogroup main_module main module documentation
+ *   @{
+ */
+
+/* Including necessary configuration files. */
+// Header files
+#include "Mcal.h"
+#include "OsIf.h"
+#include "Clock_Ip.h"
+#include "Siul2_Port_Ip.h"
+#include "Tspc_Port_Ip.h"
+#include "C40_Ip.h"
+#include "Cache_Ip.h"
+#include "libwtk3.h"
+
+/* User includes */
+extern uint32_t LC_FLASH[];
+
+static C40_Ip_StatusType Flash_Write(uint32_t address, uint32_t size, const uint8_t *data)
+{
+    C40_Ip_StatusType status;
+
+    // Ensure the sector is not protected
+    C40_Ip_VirtualSectorsType sector = C40_Ip_GetSectorNumberFromAddress(address);
+    if (C40_IP_STATUS_SECTOR_PROTECTED == C40_Ip_GetLock(sector))
+    {
+        C40_Ip_ClearLock(sector, 0);
+    }
+
+    // Write data to flash
+    status = C40_Ip_MainInterfaceWrite(address, size, data, 0);
+    if (status != C40_IP_STATUS_SUCCESS)
+    {
+        // Handle error
+        while (1)
+            ;
+    }
+
+    while (HseConfigGPR3.value & (HSE_CONFIG_GPR3_READ_MASK | HSE_CONFIG_GPR3_WRITE_MASK))
+        ;
+
+    // Wait for operation to complete
+    C40_WaitForDone();
+
+    do
+    {
+        status = C40_Ip_MainInterfaceWriteStatus();
+    } while (C40_IP_STATUS_BUSY == status);
+
+#if (STD_ON == C40_IP_SECTOR_SET_LOCK_API)
+    C40_Ip_SetLock(sector, 0);
+#endif
+
+    return status;
+}
+
+/*!
+  \brief The main function for the project.
+  \details The startup initialization sequence is the following:
+ * - startup asm routine
+ * - main()
+*/
+int main(void)
+{
+    C40_Ip_StatusType status;
+
+    OsIf_SuspendAllInterrupts();
+    OsIf_Init(NULL_PTR);
+    Clock_Ip_Init(&Clock_Ip_aClockConfig[0]);
+    C40_Ip_Init(&C40_Ip_InitCfg);
+    OsIf_ResumeAllInterrupts();
+
+    C40_Ip_SetAsyncMode(FALSE);
+
+    UTEST_Type *IP_UTEST_TEST = ((UTEST_Type *)UTEST_FLASH);
+#if defined(IP_UTEST)
+#undef IP_UTEST
+#define IP_UTEST IP_UTEST_TEST
+#endif
+
+    if (IP_UTEST->HSE_UsageFlag == HSE_UNUSED_FLAG)
+    {
+        // HSE not used, write password in utest to lock the debug port
+        uint64_t *pLcConfig = (uint64_t *)LC_FLASH;
+        if (pLcConfig != (uint64_t *)IVT_EMPTY_PTR)
+        {
+            uint64_t CurrentLcValue = *pLcConfig;
+            if (CurrentLcValue == 0xFFFFFFFFFFFFFFFFULL)
+            {
+                uint8_t index;
+                // LC could be set
+                FOREACH(index, IP_UTEST->DebugPassword) {
+                    if (IP_UTEST->DebugPassword[index] != 0xFF)
+                    {
+                        // If any byte is not 0xFF, we assume the password is already set
+                        break;
+                    }
+                }
+                if (index == ARRAY_SIZE(IP_UTEST->DebugPassword))
+                {
+                    static const uint8_t debugPassword[32] = "DebugPassword1234567890123456789";
+                    uint32_t address = (uint32_t)&IP_UTEST->DebugPassword[0];
+
+                    status = Flash_Write(address, sizeof(debugPassword), debugPassword);
+                    if (status != C40_IP_STATUS_SUCCESS)
+                    {
+                        // Handle error
+                        while (1)
+                            ;
+                    }
+                }
+                {
+                    static const uint64_t LCValue = LC_CONFIG_OEM_PRODUCTION;
+
+                    uint32_t address = (uint32_t)pLcConfig;
+                    status = Flash_Write(address, sizeof(LCValue), (const uint8_t *)&LCValue);
+
+                    if (status != C40_IP_STATUS_SUCCESS)
+                    {
+                        // Handle error
+                        while (1)
+                            ;
+                    }
+                }
+            }
+        }
+    }
+    for (;;)
+        ;
+
+    return 0;
+}
+
+/** @} */

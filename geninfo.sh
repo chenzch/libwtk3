@@ -242,8 +242,7 @@ if FindModule "Platform"; then
 
 #if (HSE_IP_NUM_OF_MU_INSTANCES > 1U)
 ISR(Mu_Ip_Mu1_OredRx_Isr);
-#endif /* (HSE_IP_NUM_OF_MU_INSTANCES > 1U) */
-"
+#endif /* (HSE_IP_NUM_OF_MU_INSTANCES > 1U) */"
     fi
 else
     if FindModule "IntCtrl_Ip"; then
@@ -290,7 +289,16 @@ if FindModule "BaseNXP"; then
 fi
 
 if FindModule "Crypto_43_HSE"; then
-    echo
+    echo "    {
+        Hse_Status status;
+        do {
+            status.status = Hse_Ip_GetHseStatus(0);
+#if !defined(NDEBUG)
+            DevAssert(status.B.InitOK);
+            DevAssert(status.B.RNGInitOK);
+#endif /* #if !defined(NDEBUG) */
+        } while(!(status.B.InitOK && status.B.RNGInitOK));
+    }"
 else
     if FindModule "Hse"; then
         echo "    {
