@@ -124,10 +124,10 @@ int main(void)
                 }
                 if (index == ARRAY_SIZE(IP_UTEST->DebugPassword))
                 {
-                    static const uint8_t debugPassword[32] = "DebugPassword1234567890123456789";
+                    static const uint8_t debugPassword[16] = "DebugPassword123";
                     uint32_t address = (uint32_t)&IP_UTEST->DebugPassword[0];
 
-                    status = Flash_Write(address, sizeof(debugPassword), debugPassword);
+                    status = Flash_Write(address, sizeof(IP_UTEST->DebugPassword), debugPassword);
                     if (status != C40_IP_STATUS_SUCCESS)
                     {
                         // Handle error

@@ -127,9 +127,13 @@ static inline Clock_Ip_StatusType Clock_Ip_Init_Check_Rtc(Clock_Ip_ClockConfigTy
 #define Clock_Ip_Init(Config) Clock_Ip_Init_Check_Rtc(Config)
 #endif
 
-#if defined(CPU_S32K310) || defined(CPU_S32K311) || defined(CPU_S32K312) || defined(CPU_S32K314) || defined(CPU_S32K341) || defined(CPU_S32K342) || defined(CPU_S32K344) || defined(CPU_S32K348)
+#if defined(CPU_S32K310) || defined(CPU_S32K311) || defined(CPU_S32K312) ||                        \
+    defined(CPU_S32K314) || defined(CPU_S32K341) || defined(CPU_S32K342) ||                        \
+    defined(CPU_S32K344) || defined(CPU_S32K348)
 #define WTK3_GetCoreID() ((uint8_t)0)
-#elif defined(CPU_S32K322) || defined(CPU_S32K324) || defined(CPU_S32K328) || defined(CPU_S32K336) || defined(CPU_S32K338) || defined(CPU_S32K374) || defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K396) || defined(CPU_S32K388)
+#elif defined(CPU_S32K322) || defined(CPU_S32K324) || defined(CPU_S32K328) ||                      \
+    defined(CPU_S32K336) || defined(CPU_S32K338) || defined(CPU_S32K374) ||                        \
+    defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K396) || defined(CPU_S32K388)
 #define WTK3_GetCoreID() ((uint8_t)(IP_MSCM->CPXNUM & MSCM_CPXNUM_CPN_MASK))
 #elif defined(CPU_S32K356) || defined(CPU_S32K358)
 #define WTK3_GetCoreID() ((uint8_t)((IP_MSCM->CPXNUM & MSCM_CPXNUM_CPN_MASK) >> 1))
@@ -451,6 +455,13 @@ static inline void Flexio_Timer_SetMode(uint8_t TimerID, Flexio_Mcl_Ip_TimerMode
         while (0 == ((*pMCRS) & FLASH_MCRS_DONE_MASK))                                             \
             ;                                                                                      \
     } while (0)
+
+typedef void (*C40_WaitForDone_Ptr)(void);
+
+#define C40_WaitForDone_Bin                                                                        \
+    {0x10, 0xB4, 0x08, 0x4C, 0x23, 0x68, 0x43, 0xF0, 0x01, 0x03, 0x23, 0x60, 0x04, 0x34,           \
+     0x00, 0xBF, 0x23, 0x68, 0x03, 0xF4, 0x00, 0x43, 0x00, 0x2B, 0xFA, 0xD0, 0x00, 0xBF,           \
+     0x00, 0xBF, 0x5D, 0xF8, 0x04, 0x4B, 0x70, 0x47, 0x00, 0xC0, 0x2E, 0x40}
 
 #endif
 
@@ -841,24 +852,26 @@ typedef struct {
 } DCFRecord_Type;
 
 typedef struct {
-    uint64_t         HSE_UsageFlag;        /* Offset : 0x00 */
-    uint64_t         Reserved1[7];         /* Offset : 0x08 */
-    uint64_t         ChipID;               /* Offset : 0x40 */
-    uint64_t         Reserved2;            /* Offset : 0x48 */
-    FXOSCConfig_Type FXOSC_Config;         /* Offset : 0x50 */
-    uint64_t         Partial_ABSwap;       /* Offset : 0x58 */
-    uint64_t         JDCClkDisable;        /* Offset : 0x60 */
-    uint64_t         Reserved3[3];         /* Offset : 0x68 */
-    uint8_t          DebugPassword[32];    /* Offset : 0x80 */
-    uint64_t         Reserved4[44];        /* Offset : 0xA0 */
-    uint64_t         DebugAuthFlag;        /* Offset : 0x200 This flag indicates whether changing the secure debug authentication mode from Password to challenge Response (CR) */
-    uint64_t         IVT_XRDC_GMAC;        /* Offset : 0x208 This flag indicates whether enabling the IVT AUTH feature */
-    uint64_t         LCSlots[6][2];        /* Offset : 0x210 */
-    uint64_t         Reserved5[30];        /* Offset : 0x270 */
-    uint8_t          HSEDebugPassword[32]; /* Offset : 0x360 */
-    uint64_t         Reserved6[112];       /* Offset : 0x380 */
-    uint64_t         DCF_Start;            /* Offset : 0x700 */
-    DCFRecord_Type   DCF_Records[671];     /* Offset : 0x708 */
+    uint64_t         HSE_UsageFlag;     /* Offset : 0x00 */
+    uint64_t         Reserved1[7];      /* Offset : 0x08 */
+    uint64_t         ChipID;            /* Offset : 0x40 */
+    uint64_t         Reserved2;         /* Offset : 0x48 */
+    FXOSCConfig_Type FXOSC_Config;      /* Offset : 0x50 */
+    uint64_t         Partial_ABSwap;    /* Offset : 0x58 */
+    uint64_t         JDCClkDisable;     /* Offset : 0x60 */
+    uint64_t         Reserved3[3];      /* Offset : 0x68 */
+    uint8_t          DebugPassword[16]; /* Offset : 0x80 */
+    uint64_t         Reserved4[46];     /* Offset : 0x90 */
+    uint64_t
+        DebugAuthFlag; /* Offset : 0x200 This flag indicates whether changing the secure debug authentication mode from Password to challenge Response (CR) */
+    uint64_t
+        IVT_XRDC_GMAC; /* Offset : 0x208 This flag indicates whether enabling the IVT AUTH feature */
+    uint64_t       LCSlots[6][2];        /* Offset : 0x210 */
+    uint64_t       Reserved5[32];        /* Offset : 0x270 */
+    uint8_t        HSEDebugPassword[16]; /* Offset : 0x370 */
+    uint64_t       Reserved6[112];       /* Offset : 0x380 */
+    uint64_t       DCF_Start;            /* Offset : 0x700 */
+    DCFRecord_Type DCF_Records[671];     /* Offset : 0x708 */
 } UTEST_Type, *UTEST_MemMapPtr;
 
 /** Peripheral UTEST base pointer */
@@ -881,7 +894,8 @@ typedef struct {
 #define LC_SLOT_VALID                (0x0U)
 #define LC_SLOT_INVALID              (0x1U)
 
-#define DCF_KEY_UTEST_MISC          (0x00100004UL)
+#define DCF_KEY_UTEST_MISC                                                                         \
+    (0x00100004UL) /* If CoreClock > 160MHz HSE_CLK_MODE_AND_GSKT_CTRL should be set. HSE Reference Manual */
 #define DCF_KEY_RESET_PAD_DEDICATED (0x00100008UL)
 #define DCF_KEY_DEST_RST_ESC        (0x0010000CUL)
 #define DCF_KEY_SDI0                (0x00100010UL)
