@@ -99,7 +99,11 @@ static inline void JumpToApplication(uint32_t BaseAddress) {
     uint32_t         *pIntVector = (uint32_t *)BaseAddress;
     uint32_t          userSP     = pIntVector[0];
     register uint32_t userEntry  = pIntVector[1];
+    uint32_t         *pVTOR      = (uint32_t *)0xE000ED08UL;
+
     __asm("cpsid i \t\n");
+
+    *pVTOR = BaseAddress;
 
     /* Set up stack pointer */
     __asm("msr msp, %[inputSP] \t\n"
@@ -944,26 +948,43 @@ static inline DCFRecord_Type *UTEST_GetFreeDCFRecord(void) {
 }
 
 typedef struct {
-    uint32_t  Header;                   /* Header of boot header structure */
+    uint32_t  Header;                   /* IVT_HEADER_MAGIC */
     uint32_t  BootConfig;               /* Boot Configuration Word */
-    uint32_t  Reserved3;                /* Reserved */
+    uint32_t  Reserved08;               /* Reserved */
     uint32_t *CM7_0_StartAddress;       /* Start address of application on CM7_0 core */
-    uint32_t  Reserved4;                /* Reserved */
+    uint32_t  Reserved10;               /* Reserved */
     uint32_t *CM7_1_StartAddress;       /* Start address of application on CM7_1 core */
-    uint32_t  Reserved5;                /* Reserved */
+    uint32_t  Reserved18;               /* Reserved */
     uint32_t *CM7_2_StartAddress;       /* Start address of application on CM7_2 core */
     uint32_t *XRDCConfig_StartAddress;  /* Address of XRDC configuration data */
     uint32_t *LCConfig;                 /* Address of LC configuration */
-    uint32_t  Reserved1;                /* Reserved */
-    uint32_t *HseFwHeader_StartAddress; /* Start address of HSE-FW image */
-    uint8_t   Reserved[192];            /* Reserved for future use */
-    uint8_t   CMAC[16];                 /* CMAC */
+    uint32_t *CM7_3_StartAddress;       /* Start address of application on CM7_3 core */
+    uint32_t *HseFwHeader_StartAddress; /* Start address of HSE-FW image FW_IMG */
+    uint32_t *AppBL_StartAddress;       /* Start address of application bootloader */
+    uint32_t  Reserved34[3];            /* Reserved */
+    uint32_t *AppCore_StartAddress; /* Start address of Application Core for Secure Recovery Mode */
+    uint32_t  AppCore_Length;       /* Length of Application Core for Secure Recovery Mode */
+    uint8_t   Reserved[156];        /* Reserved */
+    uint8_t   RandomVector[12];     /* Vector Value used in calc of GMAC */
+    uint8_t   GMAC[16];             /* GMAC */
 } IVT_Type, *IVT_MemMapPtr;
 
 #define IVT_HEADER_MAGIC         (0x5AA55AA5UL) /* Magic number for IVT header */
 #define IVT_EMPTY_PTR            (0xFFFFFFFFUL) /* Empty pointer value in IVT */
 #define LC_CONFIG_OEM_PRODUCTION (0xDADADADAUL) /* LC configuration for OEM production */
 #define LC_CONFIG_IN_FIELD       (0xBABABABAUL) /* LC configuration for in-field */
+
+#define IVT_BCW_CM7_0_ENABLE            (0x00000001UL)
+#define IVT_BCW_CM7_1_ENABLE            (0x00000002UL)
+#define IVT_BCW_CM7_2_ENABLE            (0x00000004UL)
+#define IVT_BCW_CM7_3_ENABLE            (0x00000100UL)
+#define IVT_BCW_SECURE_BOOT_ENABLE      (0x00000008UL)
+#define IVT_BCW_PLL_ENABLE              (0x00000010UL)
+#define IVT_BCW_SWT0_ENABLE             (0x00000020UL)
+#define IVT_BCW_DISABLE_SECURE_RECOVERY (0x00000040UL)
+#define IVT_BCW_RESET_RECOVERY          (0x00000080UL)
+#define IVT_BCW_FW_USAGE_FLAG_PROGRAM   (0x00000200UL)
+#define IVT_BCW_HSE_BACKUP_DISABLE      (0x00000400UL)
 
 #if defined(__cplusplus)
 }
