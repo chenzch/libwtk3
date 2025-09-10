@@ -275,6 +275,15 @@ ISR(SIUL2_EXT_IRQ_16_23_ISR);
 ISR(SIUL2_EXT_IRQ_24_31_ISR);
 #endif"
         fi
+        if FindModule "Lpuart_Uart"; then
+            for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' $BaseRoot/generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+                echo "#if (LPUART_INSTANCE_COUNT > ${instance/Lpuart_Uart_Ip_xHwConfigPB_/}U)
+#ifdef LPUART_UART_IP_INSTANCE_USING_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}
+ISR(LPUART_UART_IP_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQHandler);
+#endif
+#endif"
+            done
+        fi
     fi
 fi
 
@@ -805,8 +814,18 @@ else
         IntCtrl_Ip_EnableIrq(SIUL_3_IRQn);
 #endif"
         fi
-        echo "
-    }"
+        if FindModule "Lpuart_Uart"; then
+            for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' $BaseRoot/generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+                echo "#if (LPUART_INSTANCE_COUNT > ${instance/Lpuart_Uart_Ip_xHwConfigPB_/}U)
+#ifdef LPUART_UART_IP_INSTANCE_USING_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}
+        IntCtrl_Ip_InstallHandler(LPUART${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQn, LPUART_UART_IP_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(LPUART${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(LPUART${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQn);
+#endif
+#endif"
+            done
+        fi
+        echo "    }"
     fi
 fi
 
