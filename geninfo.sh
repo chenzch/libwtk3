@@ -479,9 +479,8 @@ else
         Siul2_Port_DisableUnusedPins(ARRAY_SIZE(unusedPins), &unusedPins[0]);
     }"
         for numval in $(grep -h '^#define NUM_OF_CONFIGURED_PINS_' $BaseRoot/board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
-            Array_Name=$(grep "\[$numval\]" $BaseRoot/board/Siul2_Port_Ip_Cfg.h | tr '[' ' ' | awk ' { print $4 }')
             echo "    {
-        Siul2_Port_Ip_PortStatusType status = Siul2_Port_Ip_Init($numval, &$Array_Name[0]);
+        Siul2_Port_Ip_PortStatusType status = Siul2_Port_Ip_NameInit(${numval/NUM_OF_CONFIGURED_PINS_/});
 #if !defined(NDEBUG)
         DevAssert((Siul2_Port_Ip_PortStatusType)SIUL2_PORT_SUCCESS == status);
 #endif /* #if !defined(NDEBUG) */
@@ -845,8 +844,8 @@ if FindModule "Dio"; then
     done
 else
     if FindModule "Siul2_Dio"; then
-        for NamedPin in $(grep -h '^#define .*_PIN ' $BaseRoot/board/Siul2_Port_Ip_Cfg.h | tr '_' ' ' | awk '{ print $2 }'); do
-            echo "    Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN($NamedPin), 1);"
+        for NamedPin in $(grep -h '^#define .*_PIN ' $BaseRoot/board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
+            echo "    // Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN(${NamedPin%_PIN}), 1);"
         done
     fi
 fi

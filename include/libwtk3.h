@@ -148,8 +148,73 @@ static inline Clock_Ip_StatusType Clock_Ip_Init_Check_Rtc(Clock_Ip_ClockConfigTy
 // Siul2_Dio_Ip.h included
 #if defined(SIUL2_DIO_IP_H)
 #define SIUL2_DIO_PIN(Port, Pin)                                                                   \
-    (((Pin) < 16) ? PT##Port##_L_HALF : PT##Port##_H_HALF), ((Pin) & 0x0F)
+    (((Pin) & 0xF0) ? PT##Port##_H_HALF : PT##Port##_L_HALF), ((Pin) & 0x0F)
 #define SIUL2_DIO_NAMED_PIN(NAME) NAME##_PORT, NAME##_PIN
+
+#if !defined(PTA_L_HALF)
+#define PTA_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO0)))
+#endif
+
+#if !defined(PTA_H_HALF)
+#define PTA_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO1)))
+#endif
+
+#if !defined(PTB_L_HALF)
+#define PTB_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO2)))
+#endif
+
+#if !defined(PTB_H_HALF)
+#define PTB_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO3)))
+#endif
+
+#if !defined(PTC_L_HALF)
+#define PTC_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO4)))
+#endif
+
+#if !defined(PTC_H_HALF)
+#define PTC_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO5)))
+#endif
+
+#if !defined(PTD_L_HALF)
+#define PTD_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO6)))
+#endif
+
+#if !defined(PTD_H_HALF)
+#define PTD_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO7)))
+#endif
+
+#if !defined(PTE_L_HALF)
+#define PTE_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO8)))
+#endif
+
+#if !defined(PTE_H_HALF)
+#define PTE_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO9)))
+#endif
+
+#if !defined(PTF_L_HALF)
+#define PTF_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO10)))
+#endif
+
+#if !defined(PTF_H_HALF)
+#define PTF_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO11)))
+#endif
+
+#if !defined(PTG_L_HALF)
+#define PTG_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO12)))
+#endif
+
+#if !defined(PTG_H_HALF)
+#define PTG_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO13)))
+#endif
+
+#if !defined(PTH_L_HALF)
+#define PTH_L_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO14)))
+#endif
+
+#if !defined(PTH_H_HALF)
+#define PTH_H_HALF ((Siul2_Dio_Ip_GpioType *)(&(IP_SIUL2->PGPDO15)))
+#endif
+
 #endif
 
 // Siul2_Port_Ip.h included
@@ -170,6 +235,8 @@ static inline void Siul2_Port_DisableUnusedPins(uint32_t       NumberOfUnusedPin
         }
     }
 }
+
+#define Siul2_Port_Ip_NameInit(NAME) Siul2_Port_Ip_Init(NUM_OF_CONFIGURED_PINS_##NAME, &g_pin_mux_InitConfigArr_##NAME[0])
 
 #if defined(DEBUGPIN)
 
