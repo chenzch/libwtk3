@@ -425,6 +425,11 @@ else
                 usedpin=(4 5 10 38 39 68 69 141)
                 MaxPin=237
                 ;;
+            S32K396|S32K394|S32K376|S32K374|S32K366|S32K364)
+                usedpin=(4 5 10 11 12 13 27 38 39 62 63 68 69 86 131 141 150 152  \
+                         153 182 220 221 222 223 224 225 226 227 228 229 230)
+                MaxPin=237
+                ;;
             *)
                 echo "Error: Invalid processor argument."
                 exit 1
