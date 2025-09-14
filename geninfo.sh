@@ -162,6 +162,10 @@ if FindModule "Flexio_Mcl_Ip"; then
     echo "#include \"Flexio_Mcl_Ip.h\""
 fi
 
+if FindModule "Flexio_Pwm"; then
+    echo "#include \"Flexio_Pwm_Ip.h\""
+fi
+
 if FindModule "Lpuart_Uart"; then
     echo "#include \"Lpuart_Uart_Ip.h\""
 fi
@@ -176,6 +180,10 @@ fi
 
 if FindModule "Wkpu"; then
     echo "#include \"Wkpu_Ip.h\""
+fi
+
+if FindModule "Lpspi"; then
+    echo "#include \"Lpspi_Ip.h\""
 fi
 
 if FindModule "Lpi2c"; then
@@ -277,10 +285,21 @@ ISR(SIUL2_EXT_IRQ_24_31_ISR);
         fi
         if FindModule "Lpuart_Uart"; then
             for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' $BaseRoot/generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
-                echo "#if (LPUART_INSTANCE_COUNT > ${instance/Lpuart_Uart_Ip_xHwConfigPB_/}U)
-#ifdef LPUART_UART_IP_INSTANCE_USING_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}
-ISR(LPUART_UART_IP_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQHandler);
+                instid="${instance##*_}"
+                echo "#if (LPUART_INSTANCE_COUNT > ${instid}U)
+#ifdef LPUART_UART_IP_INSTANCE_USING_${instid}
+ISR(LPUART_UART_IP_${instid}_IRQHandler);
 #endif
+#endif"
+            done
+        fi
+        if FindModule "Lpspi"; then
+            for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ConfigType Lpspi_Ip_PhyUnitConfig_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+            PhyUnitSuffix="${PhyUnit##*_}"
+            echo "#ifdef LPSPI_IP_${PhyUnitSuffix}_ENABLED
+    #if (LPSPI_IP_${PhyUnitSuffix}_ENABLED == STD_ON)
+ISR(Lpspi_Ip_LPSPI_${PhyUnitSuffix}_IRQHandler);
+    #endif
 #endif"
             done
         fi
@@ -606,7 +625,7 @@ fi
 if FindModule "Flexio_Mcl_Ip"; then
     Flexio_Parameter="NULL_PTR"
     if FileExist "$BaseRoot/generate/include/Flexio_Mcl_Ip_*fg.h"; then
-        Flexio_Parameter=$(grep -h '^extern const Flexio_Ip_InstanceConfigType .*;' $BaseRoot/generate/include/Flexio_Mcl_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+        Flexio_Parameter=$(grep -h 'extern const Flexio_Ip_InstanceInitType .*;' $BaseRoot/generate/include/Flexio_Mcl_Ip_*fg.h | sed -E 's/^.*extern /extern /g' | tr ';' ' ' | awk '{ print $4 }');
         Flexio_Parameter="&$Flexio_Parameter"
     fi
     echo "    {
@@ -615,6 +634,21 @@ if FindModule "Flexio_Mcl_Ip"; then
         DevAssert((Flexio_Ip_CommonStatusType)FLEXIO_IP_COMMON_STATUS_SUCCESS == status);
 #endif /* #if !defined(NDEBUG) */
     }"
+fi
+
+if FindModule "Flexio_Pwm"; then
+    echo "    {
+        Flexio_Pwm_Ip_StatusType status;"
+    for Channel in $(grep -h '#define FLEXIO_PWM_IP_SA_I._CH._CFG' $BaseRoot/generate/include/Flexio_Pwm_Ip_*fg.h | awk '{ print $2 }'); do
+        ChCfg=${Channel/FLEXIO_PWM_IP_SA_I/Flexio_Pwm_Ip_Sa_I}
+        ChCfg=${ChCfg/_CH/_Ch}
+        ChCfg=${ChCfg/_CFG/}
+        echo "        status = Flexio_Pwm_Ip_InitChannel($Channel, &$ChCfg);
+#if !defined(NDEBUG)
+        DevAssert((Flexio_Pwm_Ip_StatusType)FLEXIO_PWM_IP_STATUS_SUCCESS == status);
+#endif /* #if !defined(NDEBUG) */"
+    done
+    echo "    }"
 fi
 
 if FindModule "Lpuart_Uart"; then
@@ -686,6 +720,18 @@ if FindModule "Lpi2c"; then
         echo "        Lpi2c_Ip_pxBase[LPI2C_CHANNEL_${SlaveChannel/I2c_Lpi2cSlaveChannel/}]->MCR |= LPI2C_MCR_DBGEN_MASK;"
         echo "#if !defined(NDEBUG)
         DevAssert((Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS == status);
+#endif /* #if !defined(NDEBUG) */"
+    done
+    echo "    }"
+fi
+
+if FindModule "Lpspi"; then
+    echo "    {
+        Lpspi_Ip_StatusType status;"
+    for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ConfigType Lpspi_Ip_PhyUnitConfig_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+        echo "        status = Lpspi_Ip_Init(&$PhyUnit);"
+        echo "#if !defined(NDEBUG)
+        DevAssert((Lpspi_Ip_StatusType)LPSPI_IP_STATUS_SUCCESS == status);
 #endif /* #if !defined(NDEBUG) */"
     done
     echo "    }"
@@ -820,14 +866,33 @@ else
         fi
         if FindModule "Lpuart_Uart"; then
             for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' $BaseRoot/generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
-                echo "#if (LPUART_INSTANCE_COUNT > ${instance/Lpuart_Uart_Ip_xHwConfigPB_/}U)
-#ifdef LPUART_UART_IP_INSTANCE_USING_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}
-        IntCtrl_Ip_InstallHandler(LPUART${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQn, LPUART_UART_IP_${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
-        IntCtrl_Ip_SetPriority(LPUART${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQn, 0); // 0 highest -> 15 lowest
-        IntCtrl_Ip_EnableIrq(LPUART${instance/Lpuart_Uart_Ip_xHwConfigPB_/}_IRQn);
+                instid="${instance##*_}"
+                echo "#if (LPUART_INSTANCE_COUNT > ${instid}U)
+#ifdef LPUART_UART_IP_INSTANCE_USING_${instid}
+        IntCtrl_Ip_InstallHandler(LPUART${instid}_IRQn, LPUART_UART_IP_${instid}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(LPUART${instid}_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(LPUART${instid}_IRQn);
 #endif
 #endif"
             done
+        fi
+        if FindModule "Lpspi"; then
+            for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ConfigType Lpspi_Ip_PhyUnitConfig_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+            PhyUnitSuffix="${PhyUnit##*_}"
+            echo "#ifdef LPSPI_IP_${PhyUnitSuffix}_ENABLED
+    #if (LPSPI_IP_${PhyUnitSuffix}_ENABLED == STD_ON)
+        IntCtrl_Ip_InstallHandler(LPSPI${PhyUnitSuffix}_IRQn, Lpspi_Ip_LPSPI_${PhyUnitSuffix}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(LPSPI${PhyUnitSuffix}_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(LPSPI${PhyUnitSuffix}_IRQn);
+    #endif
+#endif"
+            done
+        fi
+        if FindModule "Flexio_Mcl_Ip"; then
+            echo "
+        IntCtrl_Ip_InstallHandler(FLEXIO_IRQn, MCL_FLEXIO_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FLEXIO_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FLEXIO_IRQn);"
         fi
         echo "    }"
     fi
@@ -848,6 +913,21 @@ else
             echo "    // Siul2_Dio_Ip_WritePin(SIUL2_DIO_NAMED_PIN(${NamedPin%_PIN}), 1);"
         done
     fi
+fi
+
+if FindModule "Lpspi"; then
+    echo "    {
+        Lpspi_Ip_StatusType status;
+        uint16_t Length = 8;
+        uint8_t TxBuffer[8] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
+        uint8_t RxBuffer[8] = {0};"
+    for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ExternalDeviceType Lpspi_Ip_DeviceAttributes_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+        echo "        status = Lpspi_Ip_SyncTransmit(&$PhyUnit, &TxBuffer[0], &RxBuffer[0], Length, -1U);"
+        echo "#if !defined(NDEBUG)
+        DevAssert((Lpspi_Ip_StatusType)LPSPI_IP_STATUS_SUCCESS == status);
+#endif /* #if !defined(NDEBUG) */"
+    done
+    echo "    }"
 fi
 
 if FindModule "Port"; then

@@ -38,7 +38,7 @@ extern "C" {
 
 static inline void NopDelay(uint32_t count) {
     register uint32_t Count = count;
-    while (Count--) {
+    while (--Count) {
         __asm("nop");
     }
 }
@@ -226,10 +226,13 @@ static inline void Siul2_Port_DisableUnusedPins(uint32_t       NumberOfUnusedPin
         Siul2_Port_Ip_PortType *BaseValue =
             (Siul2_Port_Ip_PortType *)(SIUL2_MSCR_BASE + (pin & ~0xFU));
         uint16_t PinValue = pin & 0xF;
+#if !(defined(CPU_S32K396) || defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K374) || defined(CPU_S32K366) || defined(CPU_S32K364))
         if ((pin & (~1U)) == 24) {
             Siul2_Port_Ip_SetPinDirection(BaseValue, PinValue, SIUL2_PORT_IN);
             Siul2_Port_Ip_SetPullSel(BaseValue, PinValue, PORT_INTERNAL_PULL_DOWN_ENABLED);
-        } else {
+        } else
+#endif
+        {
             Siul2_Port_Ip_SetPinDirection(BaseValue, PinValue, SIUL2_PORT_OUT);
             Siul2_Port_Ip_SetOutputBuffer(BaseValue, PinValue, 1, PORT_MUX_AS_GPIO);
         }

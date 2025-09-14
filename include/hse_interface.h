@@ -134,7 +134,7 @@ typedef uint8_t bool_t;
     #define HSE_PLATFORM       HSE_S32K3X2              /**< @brief  HSE Platform. */
 #elif defined(CPU_S32K358) || defined(CPU_S32K348) || defined(CPU_S32K338) || defined(CPU_S32K328) || defined(CPU_S32K336) || defined(CPU_S32K356)
     #define HSE_PLATFORM       HSE_S32K358              /**< @brief  HSE Platform. */
-#elif defined(CPU_S32K396) || defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K374)
+#elif defined(CPU_S32K396) || defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K374) || defined(CPU_S32K366) || defined(CPU_S32K364)
     #define HSE_PLATFORM       HSE_S32K3X6              /**< @brief  HSE Platform. */
 #elif defined(CPU_S32K388)
     #define HSE_PLATFORM       HSE_S32K388              /**< @brief  HSE Platform. */
