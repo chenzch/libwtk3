@@ -170,6 +170,10 @@ if FindModule "Lpuart_Uart"; then
     echo "#include \"Lpuart_Uart_Ip.h\""
 fi
 
+if FindModule "FlexCAN"; then
+    echo "#include \"FlexCAN_Ip.h\""
+fi
+
 if FindModule "C40_Ip"; then
     echo "#include \"C40_Ip.h\""
 fi
@@ -255,52 +259,63 @@ ISR(Mu_Ip_Mu1_OredRx_Isr);
 else
     if FindModule "IntCtrl_Ip"; then
         if FindModule "Siul2_Icu"; then
-            echo "#if ((defined SIUL2_ICU_IRQ_CH_0_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_1_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_2_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_3_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_4_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_5_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_6_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_7_ISR_USED))
-ISR(SIUL2_EXT_IRQ_0_7_ISR);
-#endif
-
-#if ((defined SIUL2_ICU_IRQ_CH_8_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_9_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_10_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_11_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_12_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_13_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_14_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_15_ISR_USED))
-ISR(SIUL2_EXT_IRQ_8_15_ISR);
-#endif
-
-#if ((defined SIUL2_ICU_IRQ_CH_16_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_17_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_18_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_19_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_20_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_21_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_22_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_23_ISR_USED))
-ISR(SIUL2_EXT_IRQ_16_23_ISR);
-#endif
-
-#if ((defined SIUL2_ICU_IRQ_CH_24_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_25_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_26_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_27_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_28_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_29_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_30_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_31_ISR_USED))
-ISR(SIUL2_EXT_IRQ_24_31_ISR);
-#endif"
+            readarray -t ChannelArray < <(grep -h '^#define SIUL2_ICU_IRQ_CH_.*' $BaseRoot/generate/include/Siul2_Icu_Ip_*fg.h | tr '_' ' ' | awk '{ print $6 }')
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(0|1|2|3|4|5|6|7)$'; then
+                echo "ISR(SIUL2_EXT_IRQ_0_7_ISR);"
+            fi
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(8|9|10|11|12|13|14|15)$'; then
+                echo "ISR(SIUL2_EXT_IRQ_8_15_ISR);"
+            fi
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(16|17|18|19|20|21|22|23)$'; then
+                echo "ISR(SIUL2_EXT_IRQ_16_23_ISR);"
+            fi
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(24|25|26|27|28|29|30|31)$'; then
+                echo "ISR(SIUL2_EXT_IRQ_24_31_ISR);"
+            fi
         fi
         if FindModule "Lpuart_Uart"; then
             for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' $BaseRoot/generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
                 instid="${instance##*_}"
-                echo "#if (LPUART_INSTANCE_COUNT > ${instid}U)
-#ifdef LPUART_UART_IP_INSTANCE_USING_${instid}
-ISR(LPUART_UART_IP_${instid}_IRQHandler);
-#endif
-#endif"
+                echo "ISR(LPUART_UART_IP_${instid}_IRQHandler);"
             done
         fi
         if FindModule "Lpspi"; then
             for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ConfigType Lpspi_Ip_PhyUnitConfig_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
             PhyUnitSuffix="${PhyUnit##*_}"
-            echo "#ifdef LPSPI_IP_${PhyUnitSuffix}_ENABLED
-    #if (LPSPI_IP_${PhyUnitSuffix}_ENABLED == STD_ON)
-ISR(Lpspi_Ip_LPSPI_${PhyUnitSuffix}_IRQHandler);
-    #endif
-#endif"
+            echo "ISR(Lpspi_Ip_LPSPI_${PhyUnitSuffix}_IRQHandler);"
+            done
+        fi
+        if FindModule "FlexCAN"; then
+            for Instance in $(grep -h '^#define INST_FLEXCAN_.*' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr 'U' ' ' | awk '{ print $3 }'); do
+                echo "ISR(CAN${Instance}_ORED_IRQHandler);
+ISR(CAN${Instance}_ORED_0_31_MB_IRQHandler);"
+                case $Instance in
+                    0)
+                        echo "ISR(CAN0_ORED_32_63_MB_IRQHandler);"
+                        MBDSRCount=$(grep -h '^#define FLEXCAN_IP_FEATURE_MBDSR_COUNT' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | awk -F'[()]' '{ print $2 }' | tr -d 'U')
+                        if [ "$MBDSRCount" -gt 2 ]; then
+                            echo "ISR(CAN0_ORED_64_95_MB_IRQHandler);"
+                        fi
+                        ;;
+                    1|2)
+                        echo "ISR(CAN${Instance}_ORED_32_63_MB_IRQHandler);"
+                        case $(FindProcessor) in
+                            S32K328|S32K338|S32K348|S32K356|S32K358|S32K388|S32K389|S32K364|S32K366|S32K394|S32K396|S32K374|S32K376)
+                                echo "ISR(CAN${Instance}_ORED_64_95_MB_IRQHandler);"
+                                ;;
+                        esac
+                        ;;
+                    3|4|5)
+                        case $(FindProcessor) in
+                            S32K328|S32K338|S32K348|S32K356|S32K358|S32K388|S32K389|S32K364|S32K366|S32K394|S32K396|S32K374|S32K376)
+                                echo "ISR(CAN${Instance}_ORED_32_63_MB_IRQHandler);"
+                                ;;
+                        esac
+                        ;;
+                    6|7|8|9|10|11)
+                        echo "ISR(CAN${Instance}_ORED_32_63_MB_IRQHandler);"
+                        ;;
+                esac
             done
         fi
     fi
@@ -381,9 +396,7 @@ else
     fi
     echo "    {
         Clock_Ip_StatusType status = Clock_Ip_Init($Init_Parameter);
-#if !defined(NDEBUG)
-        DevAssert((Clock_Ip_StatusType)CLOCK_IP_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+        ASSERT_EQUAL((Clock_Ip_StatusType)CLOCK_IP_SUCCESS, status);
     }"
 fi
 
@@ -500,9 +513,7 @@ else
         for numval in $(grep -h '^#define NUM_OF_CONFIGURED_PINS_' $BaseRoot/board/Siul2_Port_Ip_Cfg.h | awk '{ print $2 }'); do
             echo "    {
         Siul2_Port_Ip_PortStatusType status = Siul2_Port_Ip_NameInit(${numval/NUM_OF_CONFIGURED_PINS_/});
-#if !defined(NDEBUG)
-        DevAssert((Siul2_Port_Ip_PortStatusType)SIUL2_PORT_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+        ASSERT_EQUAL((Siul2_Port_Ip_PortStatusType)SIUL2_PORT_SUCCESS, status);
     }"
         done
     fi
@@ -527,16 +538,11 @@ if FindModule "Siul2_Icu"; then
     fi
     echo "    {
         Siul2_Icu_Ip_StatusType status = Siul2_Icu_Ip_Init(0, $IcuConfig);
-#if !defined(NDEBUG)
-        DevAssert((Siul2_Icu_Ip_StatusType)SIUL2_ICU_IP_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */"
-    for file in $BaseRoot/generate/src/Siul2_Icu_Ip_*fg.c; do
-        if [ -f "$file" ]; then
-            ChannelName=$(grep -A 1 "Siul2 HW Module and Channel used by the Icu channel" "$file" | grep -v "Siul2 HW Module and Channel used by the Icu channel" | grep -oE '[0-9]+')
-            echo "        Siul2_Icu_Ip_EnableInterrupt(0, $ChannelName);
-        Siul2_Icu_Ip_EnableNotification(0, $ChannelName);"
-        fi
-    done
+        ASSERT_EQUAL((Siul2_Icu_Ip_StatusType)SIUL2_ICU_IP_SUCCESS, status);"
+        for Channel in $(grep -h '^#define SIUL2_ICU_IRQ_CH_.*' $BaseRoot/generate/include/Siul2_Icu_Ip_*fg.h | tr '_' ' ' | awk '{ print $6 }'); do
+            echo "        Siul2_Icu_Ip_EnableChannel(0, $Channel);
+        Siul2_Icu_Ip_EnableNotification(0, $Channel);"
+        done
     echo "    }"
 fi
 
@@ -607,9 +613,7 @@ if FindModule "Dma_Ip"; then
     fi
     echo "    {
         Dma_Ip_ReturnType status = Dma_Ip_Init($Dma_Parameter);
-#if !defined(NDEBUG)
-        DevAssert((Dma_Ip_ReturnType)DMA_IP_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+        ASSERT_EQUAL((Dma_Ip_ReturnType)DMA_IP_STATUS_SUCCESS, status);
     }"
 fi
 
@@ -630,9 +634,7 @@ if FindModule "Flexio_Mcl_Ip"; then
     fi
     echo "    {
         Flexio_Ip_CommonStatusType status = Flexio_Mcl_Ip_InitDevice($Flexio_Parameter);
-#if !defined(NDEBUG)
-        DevAssert((Flexio_Ip_CommonStatusType)FLEXIO_IP_COMMON_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+        ASSERT_EQUAL((Flexio_Ip_CommonStatusType)FLEXIO_IP_COMMON_STATUS_SUCCESS, status);
     }"
 fi
 
@@ -644,9 +646,7 @@ if FindModule "Flexio_Pwm"; then
         ChCfg=${ChCfg/_CH/_Ch}
         ChCfg=${ChCfg/_CFG/}
         echo "        status = Flexio_Pwm_Ip_InitChannel($Channel, &$ChCfg);
-#if !defined(NDEBUG)
-        DevAssert((Flexio_Pwm_Ip_StatusType)FLEXIO_PWM_IP_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */"
+        ASSERT_EQUAL((Flexio_Pwm_Ip_StatusType)FLEXIO_PWM_IP_STATUS_SUCCESS, status);"
     done
     echo "    }"
 fi
@@ -657,6 +657,19 @@ if FindModule "Lpuart_Uart"; then
     done
 fi
 
+if FindModule "FlexCAN"; then
+    echo "    {
+        Flexcan_Ip_StatusType status;"
+    readarray -t ConfigArray < <(grep -h '^extern const Flexcan_Ip_ConfigType .*;' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }')
+    readarray -t InstanceArray < <(grep -h '^#define INST_FLEXCAN_.*' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | awk '{ print $2 }')
+    readarray -t StateArray < <(grep -h '^extern Flexcan_Ip_StateType .*;' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr ';' ' ' | awk '{ print $3 }')
+    for ((idx=0; idx<${#InstanceArray[@]}; idx++)); do
+        echo "        status = FlexCAN_Ip_Init(${InstanceArray[$idx]}, &${StateArray[$idx]}, &${ConfigArray[$idx]});"
+        echo "        ASSERT_EQUAL((Flexcan_Ip_StatusType)FLEXCAN_STATUS_SUCCESS, status);"
+    done
+    echo "    }"
+fi
+
 if FindModule "C40_Ip"; then
     C40_Parameter="NULL_PTR"
     if FileExist "$BaseRoot/generate/include/C40_Ip_*fg.h"; then
@@ -665,9 +678,7 @@ if FindModule "C40_Ip"; then
     fi
     echo "    {
         C40_Ip_StatusType status = C40_Ip_Init($C40_Parameter);
-#if !defined(NDEBUG)
-        DevAssert((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+        ASSERT_EQUAL((C40_Ip_StatusType)C40_IP_STATUS_SUCCESS, status);
     }"
 fi
 
@@ -684,9 +695,7 @@ if FindModule "Wkpu"; then
     fi
     echo "    {
         Wkpu_Ip_StatusType status = Wkpu_Ip_Init(0, $WkpuConfig);
-#if !defined(NDEBUG)
-        DevAssert((Wkpu_Ip_StatusType)WKPU_IP_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */"
+        ASSERT_EQUAL((Wkpu_Ip_StatusType)WKPU_IP_SUCCESS, status);"
     for file in $BaseRoot/generate/src/Wkpu_Ip_*fg.c; do
         if [ -f "$file" ]; then
             ChannelName=$(grep -A 1 "Wkpu HW Channel used by the Icu channel" "$file" | grep -v "Wkpu HW Channel used by the Icu channel" | grep -oE '[0-9]+')
@@ -711,16 +720,12 @@ if FindModule "Lpi2c"; then
     for MasterChannel in $(grep -h '^extern const Lpi2c_Ip_MasterConfigType .*;' $BaseRoot/generate/include/Lpi2c_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
         echo "        status = Lpi2c_Ip_MasterInit(LPI2C_CHANNEL_${MasterChannel/I2c_Lpi2cMasterChannel/}, &$MasterChannel);"
         echo "        Lpi2c_Ip_pxBase[LPI2C_CHANNEL_${MasterChannel/I2c_Lpi2cMasterChannel/}]->MCR |= LPI2C_MCR_DBGEN_MASK;"
-        echo "#if !defined(NDEBUG)
-        DevAssert((Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS == status);
-#endif /* #if !defined(NDEBUG) */"
+        echo "        ASSERT_EQUAL((Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS, status);"
     done
     for SlaveChannel in $(grep -h '^extern const Lpi2c_Ip_SlaveConfigType .*;' $BaseRoot/generate/include/Lpi2c_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
         echo "        status = Lpi2c_Ip_SlaveInit(LPI2C_CHANNEL_${SlaveChannel/I2c_Lpi2cSlaveChannel/}, &$SlaveChannel);"
         echo "        Lpi2c_Ip_pxBase[LPI2C_CHANNEL_${SlaveChannel/I2c_Lpi2cSlaveChannel/}]->MCR |= LPI2C_MCR_DBGEN_MASK;"
-        echo "#if !defined(NDEBUG)
-        DevAssert((Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS == status);
-#endif /* #if !defined(NDEBUG) */"
+        echo "        ASSERT_EQUAL((Lpi2c_Ip_StatusType)LPI2C_IP_SUCCESS_STATUS, status);"
     done
     echo "    }"
 fi
@@ -730,9 +735,7 @@ if FindModule "Lpspi"; then
         Lpspi_Ip_StatusType status;"
     for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ConfigType Lpspi_Ip_PhyUnitConfig_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
         echo "        status = Lpspi_Ip_Init(&$PhyUnit);"
-        echo "#if !defined(NDEBUG)
-        DevAssert((Lpspi_Ip_StatusType)LPSPI_IP_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */"
+        echo "        ASSERT_EQUAL((Lpspi_Ip_StatusType)LPSPI_IP_STATUS_SUCCESS, status);"
     done
     echo "    }"
 fi
@@ -744,9 +747,7 @@ if FindModule "Gmac"; then
             GmacConfig="&$GmacConfig"
             echo "    {
         Gmac_Ip_StatusType status = Gmac_Ip_Init(INST_GMAC_0, $GmacConfig);
-#if !defined(NDEBUG)
-        DevAssert((Gmac_Ip_StatusType)GMAC_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+        ASSERT_EQUAL((Gmac_Ip_StatusType)GMAC_STATUS_SUCCESS, status);
     }"
         fi
         GmacConfig=$(grep -h 'extern const Gmac_CtrlConfigType Gmac_1.*;' $BaseRoot/generate/include/Gmac_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
@@ -754,9 +755,7 @@ if FindModule "Gmac"; then
             GmacConfig="&$GmacConfig"
             echo "    {
         Gmac_Ip_StatusType status = Gmac_Ip_Init(INST_GMAC_1, $GmacConfig);
-#if !defined(NDEBUG)
-        DevAssert((Gmac_Ip_StatusType)GMAC_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+        ASSERT_EQUAL((Gmac_Ip_StatusType)GMAC_STATUS_SUCCESS, status);
     }"
         fi
     fi
@@ -775,9 +774,7 @@ else
         static Hse_Ip_MuStateType HseIp_MuState[HSE_IP_NUM_OF_MU_INSTANCES];
         for (uint32_t InstID = 0; InstID < HSE_IP_NUM_OF_MU_INSTANCES; ++InstID) {
             Hse_Ip_StatusType status = Hse_Ip_Init(InstID, &HseIp_MuState[InstID]);
-#if !defined(NDEBUG)
-            DevAssert((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */
+            ASSERT_EQUAL((Hse_Ip_StatusType)HSE_IP_STATUS_SUCCESS, status);
         }
         {
             static HSE_Task gTasks[HSE_MAX_TASK_COUNT];
@@ -790,12 +787,6 @@ fi
 # Processing Interrupts
 if FindModule "Platform"; then
     echo "    Platform_Init(NULL_PTR);"
-    # for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
-    #     echo
-    #     echo "    // Platform_InstallIrqHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
-    #     echo "    // Platform_SetIrqPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
-    #     echo "    // Platform_SetIrq(IRQn_Type, TRUE);"
-    # done
     PrintMPUInfo
     if FindModule "Crypto_43_HSE"; then
         echo "    Platform_InstallIrqHandler(HSE_MU0_RX_IRQn, Mu_Ip_Mu0_OredRx_Isr, NULL_PTR); // Parameter 3 is output of current ISR
@@ -818,79 +809,99 @@ else
         fi
         echo "    {
         IntCtrl_Ip_StatusType status = IntCtrl_Ip_Init($Init_Parameter);
-#if !defined(NDEBUG)
-        DevAssert((IntCtrl_Ip_StatusType)INTCTRL_IP_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */"
-        # for i in $(grep "ISR(.*)" $BaseRoot/RTD/src/* | sed 's/ //g' | tr '()' '  ' | awk '{ print $2 }' | sort -u); do
-        #     echo
-        #     echo "        // IntCtrl_Ip_InstallHandler(IRQn_Type, $i, NULL_PTR); // Parameter 3 is output of current ISR"
-        #     echo "        // IntCtrl_Ip_SetPriority(IRQn_Type, 0); // 0 highest -> 15 lowest"
-        #     echo "        // IntCtrl_Ip_EnableIrq(IRQn_Type);"
-        # done
+        ASSERT_EQUAL((IntCtrl_Ip_StatusType)INTCTRL_IP_STATUS_SUCCESS, status);"
+
         if FindModule "Siul2_Icu"; then
-            echo "#if ((defined SIUL2_ICU_IRQ_CH_0_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_1_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_2_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_3_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_4_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_5_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_6_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_7_ISR_USED))
-        IntCtrl_Ip_InstallHandler(SIUL_0_IRQn, SIUL2_EXT_IRQ_0_7_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+            readarray -t ChannelArray < <(grep -h '^#define SIUL2_ICU_IRQ_CH_.*' $BaseRoot/generate/include/Siul2_Icu_Ip_*fg.h | tr '_' ' ' | awk '{ print $6 }')
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(0|1|2|3|4|5|6|7)$'; then
+                echo "        IntCtrl_Ip_InstallHandler(SIUL_0_IRQn, SIUL2_EXT_IRQ_0_7_ISR, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(SIUL_0_IRQn, 0); // 0 highest -> 15 lowest
-        IntCtrl_Ip_EnableIrq(SIUL_0_IRQn);
-#endif
-
-#if ((defined SIUL2_ICU_IRQ_CH_8_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_9_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_10_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_11_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_12_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_13_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_14_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_15_ISR_USED))
-        IntCtrl_Ip_InstallHandler(SIUL_1_IRQn, SIUL2_EXT_IRQ_8_15_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_EnableIrq(SIUL_0_IRQn);"
+            fi
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(8|9|10|11|12|13|14|15)$'; then
+                echo "        IntCtrl_Ip_InstallHandler(SIUL_1_IRQn, SIUL2_EXT_IRQ_8_15_ISR, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(SIUL_1_IRQn, 0); // 0 highest -> 15 lowest
-        IntCtrl_Ip_EnableIrq(SIUL_1_IRQn);
-#endif
-
-#if ((defined SIUL2_ICU_IRQ_CH_16_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_17_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_18_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_19_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_20_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_21_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_22_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_23_ISR_USED))
-        IntCtrl_Ip_InstallHandler(SIUL_2_IRQn, SIUL2_EXT_IRQ_16_23_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_EnableIrq(SIUL_1_IRQn);"
+            fi
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(16|17|18|19|20|21|22|23)$'; then
+                echo "        IntCtrl_Ip_InstallHandler(SIUL_2_IRQn, SIUL2_EXT_IRQ_16_23_ISR, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(SIUL_2_IRQn, 0); // 0 highest -> 15 lowest
-        IntCtrl_Ip_EnableIrq(SIUL_2_IRQn);
-#endif
-
-#if ((defined SIUL2_ICU_IRQ_CH_24_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_25_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_26_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_27_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_28_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_29_ISR_USED) || \\
-     (defined SIUL2_ICU_IRQ_CH_30_ISR_USED) || (defined SIUL2_ICU_IRQ_CH_31_ISR_USED))
-        IntCtrl_Ip_InstallHandler(SIUL_3_IRQn, SIUL2_EXT_IRQ_24_31_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_EnableIrq(SIUL_2_IRQn);"
+            fi
+            if printf '%s\n' "${ChannelArray[@]}" | grep -qE '^(24|25|26|27|28|29|30|31)$'; then
+                echo "        IntCtrl_Ip_InstallHandler(SIUL_3_IRQn, SIUL2_EXT_IRQ_24_31_ISR, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(SIUL_3_IRQn, 0); // 0 highest -> 15 lowest
-        IntCtrl_Ip_EnableIrq(SIUL_3_IRQn);
-#endif"
+        IntCtrl_Ip_EnableIrq(SIUL_3_IRQn);"
+            fi
         fi
+
         if FindModule "Lpuart_Uart"; then
             for instance in $(grep -h '^extern const Lpuart_Uart_Ip_UserConfigType .*;' $BaseRoot/generate/include/Lpuart_Uart_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
                 instid="${instance##*_}"
-                echo "#if (LPUART_INSTANCE_COUNT > ${instid}U)
-#ifdef LPUART_UART_IP_INSTANCE_USING_${instid}
-        IntCtrl_Ip_InstallHandler(LPUART${instid}_IRQn, LPUART_UART_IP_${instid}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+                echo "        IntCtrl_Ip_InstallHandler(LPUART${instid}_IRQn, LPUART_UART_IP_${instid}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(LPUART${instid}_IRQn, 0); // 0 highest -> 15 lowest
-        IntCtrl_Ip_EnableIrq(LPUART${instid}_IRQn);
-#endif
-#endif"
+        IntCtrl_Ip_EnableIrq(LPUART${instid}_IRQn);"
             done
         fi
         if FindModule "Lpspi"; then
             for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ConfigType Lpspi_Ip_PhyUnitConfig_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
             PhyUnitSuffix="${PhyUnit##*_}"
-            echo "#ifdef LPSPI_IP_${PhyUnitSuffix}_ENABLED
-    #if (LPSPI_IP_${PhyUnitSuffix}_ENABLED == STD_ON)
-        IntCtrl_Ip_InstallHandler(LPSPI${PhyUnitSuffix}_IRQn, Lpspi_Ip_LPSPI_${PhyUnitSuffix}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+            echo "        IntCtrl_Ip_InstallHandler(LPSPI${PhyUnitSuffix}_IRQn, Lpspi_Ip_LPSPI_${PhyUnitSuffix}_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(LPSPI${PhyUnitSuffix}_IRQn, 0); // 0 highest -> 15 lowest
-        IntCtrl_Ip_EnableIrq(LPSPI${PhyUnitSuffix}_IRQn);
-    #endif
-#endif"
+        IntCtrl_Ip_EnableIrq(LPSPI${PhyUnitSuffix}_IRQn);"
+            done
+        fi
+        if FindModule "FlexCAN"; then
+            for Instance in $(grep -h '^#define INST_FLEXCAN_.*' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr 'U' ' ' | awk '{ print $3 }'); do
+                echo "        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_0_IRQn, CAN${Instance}_ORED_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_0_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_0_IRQn);
+        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_1_IRQn, CAN${Instance}_ORED_0_31_MB_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_1_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_1_IRQn);"
+                case $Instance in
+                    0)
+                        echo "        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_2_IRQn, CAN0_ORED_32_63_MB_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_2_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_2_IRQn);"
+                        MBDSRCount=$(grep -h '^#define FLEXCAN_IP_FEATURE_MBDSR_COUNT' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | awk -F'[()]' '{ print $2 }' | tr -d 'U')
+                        if [ "$MBDSRCount" -gt 2 ]; then
+                            echo "        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_3_IRQn, CAN0_ORED_64_95_MB_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_3_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_3_IRQn);"
+                        fi
+                        ;;
+                    1|2)
+                        echo "        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_2_IRQn, CAN${Instance}_ORED_32_63_MB_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_2_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_2_IRQn);"
+                        case $(FindProcessor) in
+                            S32K328|S32K338|S32K348|S32K356|S32K358|S32K388|S32K389|S32K364|S32K366|S32K394|S32K396|S32K374|S32K376)
+                                echo "        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_3_IRQn, CAN${Instance}_ORED_64_95_MB_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_3_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_3_IRQn);"
+                                ;;
+                        esac
+                        ;;
+                    3|4|5)
+                        case $(FindProcessor) in
+                            S32K328|S32K338|S32K348|S32K356|S32K358|S32K388|S32K389|S32K364|S32K366|S32K394|S32K396|S32K374|S32K376)
+                                echo "        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_2_IRQn, CAN${Instance}_ORED_32_63_MB_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_2_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_2_IRQn);"
+                                ;;
+                        esac
+                        ;;
+                    6|7|8|9|10|11)
+                        echo "        IntCtrl_Ip_InstallHandler(FlexCAN${Instance}_2_IRQn, CAN${Instance}_ORED_32_63_MB_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(FlexCAN${Instance}_2_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(FlexCAN${Instance}_2_IRQn);"
+                        ;;
+                esac
             done
         fi
         if FindModule "Flexio_Mcl_Ip"; then
-            echo "
-        IntCtrl_Ip_InstallHandler(FLEXIO_IRQn, MCL_FLEXIO_ISR, NULL_PTR); // Parameter 3 is output of current ISR
+            echo "        IntCtrl_Ip_InstallHandler(FLEXIO_IRQn, MCL_FLEXIO_ISR, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(FLEXIO_IRQn, 0); // 0 highest -> 15 lowest
         IntCtrl_Ip_EnableIrq(FLEXIO_IRQn);"
         fi
@@ -923,9 +934,17 @@ if FindModule "Lpspi"; then
         uint8_t RxBuffer[8] = {0};"
     for PhyUnit in $(grep -h '    extern const Lpspi_Ip_ExternalDeviceType Lpspi_Ip_DeviceAttributes_.*' $BaseRoot/generate/include/Lpspi_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
         echo "        status = Lpspi_Ip_SyncTransmit(&$PhyUnit, &TxBuffer[0], &RxBuffer[0], Length, -1U);"
-        echo "#if !defined(NDEBUG)
-        DevAssert((Lpspi_Ip_StatusType)LPSPI_IP_STATUS_SUCCESS == status);
-#endif /* #if !defined(NDEBUG) */"
+        echo "        ASSERT_EQUAL((Lpspi_Ip_StatusType)LPSPI_IP_STATUS_SUCCESS, status);"
+    done
+    echo "    }"
+fi
+
+if FindModule "FlexCAN"; then
+    echo "    {
+        Flexcan_Ip_StatusType status;"
+    for Instance in $(grep -h '^#define INST_FLEXCAN_.*' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | awk '{ print $2 }'); do
+        echo "        status = FlexCAN_Ip_SetStartMode($Instance);"
+        echo "        ASSERT_EQUAL((Flexcan_Ip_StatusType)FLEXCAN_STATUS_SUCCESS, status);"
     done
     echo "    }"
 fi

@@ -1056,6 +1056,14 @@ typedef struct {
 #define IVT_BCW_FW_USAGE_FLAG_PROGRAM   (0x00000200UL)
 #define IVT_BCW_HSE_BACKUP_DISABLE      (0x00000400UL)
 
+#if defined(NDEBUG)
+#define ASSERT_EQUAL(CONST_VALUE, VARIABLE) ((void)VARIABLE)
+#define ASSERT_NOT_EQUAL(CONST_VALUE, VARIABLE) ((void)VARIABLE)
+#else
+#define ASSERT_EQUAL(CONST_VALUE, VARIABLE) DevAssert((CONST_VALUE) == (VARIABLE))
+#define ASSERT_NOT_EQUAL(CONST_VALUE, VARIABLE) DevAssert((CONST_VALUE) != (VARIABLE))
+#endif /* #if !defined(NDEBUG) */
+
 #if defined(__cplusplus)
 }
 #endif

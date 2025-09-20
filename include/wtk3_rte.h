@@ -17,8 +17,8 @@
 // authorization of Wtmec Corporation.
 //
 //---------------------------------------------------------------------------------------------------------------------
-#if !defined(WT_RTE_H)
-#define WT_RTE_H (1)
+#if !defined(WTK3_RTE_H)
+#define WTK3_RTE_H (1)
 
 #if defined(__cplusplus)
 extern "C" {
@@ -63,31 +63,38 @@ static inline void WT_RTE_Write(WT_RTE_ItemPtr pItem, uint32_t value) {
 #define WT_RTE_InitializedValue(Value, Count)                                                      \
     ((uint64_t)(Value) | ((uint64_t)((Count) * 0x0101) << 32ULL))
 
+
 typedef struct {
     uint32_t TaskState;
-    uint32_t LastTick;
-    uint32_t TickElapsed;
+    uint32_t NextTick;
     uint32_t TickInterval;
-    bool_t (*TaskInit)(void);
+    bool (*TaskInit)(void);
     void (*TaskRun)(void);
-    bool_t (*TaskEnd)(void);
+    bool (*TaskEnd)(void);
 } WT_RTE_Task, *WT_RTE_TaskPtr;
 
 #define WT_RTE_TASK_STATE_INVALID (-1U)
 #define WT_RTE_TASK_STATE_IDLE    (0U)
 #define WT_RTE_TASK_STATE_RUN     (1U)
 
-static inline bool_t WT_RTE_Task_Init(WT_RTE_TaskPtr pTask) {
-    bool_t Result = true;
+#define WT_RTE_Task_INIT(Interval, FuncInit, FuncRun, FuncEnd) {WT_RTE_TASK_STATE_IDLE, 0, (Interval), (FuncInit), (FuncRun), (FuncEnd)}
+#define WT_RTE_Task_End() {WT_RTE_TASK_STATE_INVALID, 0, 0, NULL, NULL, NULL}
+
+void WTK3_System_Timer_Init(void);
+uint32_t WTK3_System_Timer_GetCounter(void);
+
+static inline bool WTK3_RTE_Task_Init(WT_RTE_TaskPtr pTask) {
+    bool Result = true;
+    uint32_t currentTick = WTK3_System_Timer_GetCounter();
+
     if (pTask) {
         while (pTask->TaskState != WT_RTE_TASK_STATE_INVALID) {
             if (pTask->TaskState == WT_RTE_TASK_STATE_IDLE) {
-                if (pTask->TaskInit) {
-                    if (pTask->TaskInit()) {
-                        pTask->TaskState = WT_RTE_TASK_STATE_RUN;
-                    } else {
-                        Result = false;
-                    }
+                if (pTask->TaskInit && !pTask->TaskInit()) {
+					Result = false;
+                } else {
+                    pTask->TaskState = WT_RTE_TASK_STATE_RUN;
+                    pTask->NextTick = currentTick + pTask->TickInterval;
                 }
             }
             ++pTask;
@@ -96,15 +103,20 @@ static inline bool_t WT_RTE_Task_Init(WT_RTE_TaskPtr pTask) {
     return Result;
 }
 
-static inline void WT_RTE_Task_Run(WT_RTE_TaskPtr pTask, uint32_t currentTick) {
+static inline void WTK3_RTE_Task_Run(WT_RTE_TaskPtr pTask) {
     if (pTask) {
+        uint32_t currentTick = WTK3_System_Timer_GetCounter();
         while (pTask->TaskState != WT_RTE_TASK_STATE_INVALID) {
             if (pTask->TaskState == WT_RTE_TASK_STATE_RUN) {
-                if ((int32_t)(currentTick - pTask->NextTick) >= 0) {
-                    if (pTask->TaskRun) {
+                if (pTask->TaskRun) {
+                    if (((int32_t)(currentTick - pTask->NextTick)) >= 0) {
                         pTask->TaskRun();
+                        if (pTask->TickInterval) {
+                            pTask->NextTick += pTask->TickInterval;
+                        } else {
+                            pTask->NextTick = currentTick;
+                        }
                     }
-                    pTask->NextTick += pTask->TickInterval;
                 }
             }
             ++pTask;
@@ -116,4 +128,4 @@ static inline void WT_RTE_Task_Run(WT_RTE_TaskPtr pTask, uint32_t currentTick) {
 }
 #endif
 
-#endif // WT_RTE_H
+#endif // WTK3_RTE_H
