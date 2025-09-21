@@ -199,6 +199,14 @@ if FindModule "Gmac"; then
     echo "#include \"Gmac_Ip.h\""
 fi
 
+if FindModule "Trgmux_Ip"; then
+    echo "#include \"Trgmux_Ip.h\""
+fi
+
+if FindModule "Lcu_Ip"; then
+    echo "#include \"Lcu_Ip.h\""
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "#include \"Crypto_43_HSE.h\""
     echo "#include \"Crypto_43_HSE_Util.h\""
@@ -316,6 +324,11 @@ ISR(CAN${Instance}_ORED_0_31_MB_IRQHandler);"
                         echo "ISR(CAN${Instance}_ORED_32_63_MB_IRQHandler);"
                         ;;
                 esac
+            done
+        fi
+        if FindModule "Lcu_Ip"; then
+            for isr in $(grep -h '^ISR(Lcu._Ip_IRQHandler);' $BaseRoot/generate/include/Lcu_Ip_*fg.h); do
+                echo "$isr"
             done
         fi
     fi
@@ -761,6 +774,36 @@ if FindModule "Gmac"; then
     fi
 fi
 
+if FindModule "Trgmux_Ip"; then
+    TrgmuxConfig=$(grep -h 'extern const Trgmux_Ip_InitType .*;' $BaseRoot/generate/include/Trgmux_Ip_*fg.h | sed 's/^.*Trgmux_Ip_InitType/Trgmux_Ip_InitType/' | tr ';' ' ' | awk '{ print $2 }');
+    echo "    {
+        Trgmux_Ip_StatusType status = Trgmux_Ip_Init(&$TrgmuxConfig);
+        ASSERT_EQUAL((Trgmux_Ip_StatusType)TRGMUX_IP_STATUS_SUCCESS, status);
+    }"
+fi
+
+if FindModule "Lcu_Ip"; then
+    LcuConfig=$(grep -h 'extern const Lcu_Ip_InitType .*;' $BaseRoot/generate/include/Lcu_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }');
+    OutputChannel=$(grep -h '^#define SA_LCU_LOGIC_OUTPUT_.*' $BaseRoot/generate/include/Lcu_Ip_*fg.h | awk '{ print $2 }');
+    echo "    {
+        Lcu_Ip_ReturnType status = Lcu_Ip_Init(&$LcuConfig);
+        ASSERT_EQUAL((Lcu_Ip_ReturnType)LCU_IP_STATUS_SUCCESS, status);"
+    if grep -q '/\* boolean EnDebugMode   \*/ (boolean)FALSE,' $BaseRoot/generate/src/Lcu_Ip_*fg.c 2>/dev/null; then
+        echo "        /* Warning EnDebugMode is False */"
+    fi
+    echo "#if (STD_ON == LCU_IP_SYNC_FUNC_IS_AVAILABLE)
+        Lcu_Ip_SyncOutputValueType SyncOutputList[] =
+        {"
+    for SyncChannel in $OutputChannel; do
+        echo "            {$SyncChannel, LCU_IP_OUTPUT_ENABLE},"
+    done
+    echo "        };
+        status = Lcu_Ip_SetSyncOutputEnable(&SyncOutputList[0U], ARRAY_SIZE(SyncOutputList));
+        ASSERT_EQUAL((Lcu_Ip_ReturnType)LCU_IP_STATUS_SUCCESS, status);
+#endif
+    }"
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "    /* Initialize Crypto driver */
     Crypto_43_HSE_Init(NULL_PTR);
@@ -900,6 +943,14 @@ else
                 esac
             done
         fi
+        if FindModule "Lcu_Ip"; then
+            for isr in $(grep -h '^ISR(Lcu._Ip_IRQHandler);' $BaseRoot/generate/include/Lcu_Ip_*fg.h | grep -oP 'Lcu\K[0-9]+'); do
+                echo "        IntCtrl_Ip_InstallHandler(LCU${isr}_IRQn, Lcu${isr}_Ip_IRQHandler, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(LCU${isr}_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(LCU${isr}_IRQn);"
+            done
+        fi
+
         if FindModule "Flexio_Mcl_Ip"; then
             echo "        IntCtrl_Ip_InstallHandler(FLEXIO_IRQn, MCL_FLEXIO_ISR, NULL_PTR); // Parameter 3 is output of current ISR
         IntCtrl_Ip_SetPriority(FLEXIO_IRQn, 0); // 0 highest -> 15 lowest
