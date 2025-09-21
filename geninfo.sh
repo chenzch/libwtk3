@@ -331,6 +331,9 @@ ISR(CAN${Instance}_ORED_0_31_MB_IRQHandler);"
                 echo "$isr"
             done
         fi
+        if FindModule "Flexio_Mcl_Ip"; then
+            echo "ISR(MCL_FLEXIO_ISR);"
+        fi
     fi
 fi
 
