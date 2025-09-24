@@ -83,6 +83,8 @@ typedef struct {
 void WTK3_System_Timer_Init(void);
 uint32_t WTK3_System_Timer_GetCounter(void);
 
+#define SYSTICK_HANDLER_IMPL void __attribute__((section(".itcm_text"), optimize("O1"))) SysTick_Handler(void) {++gCurrentTick;}
+
 static inline bool WTK3_RTE_Task_Init(WT_RTE_TaskPtr pTask) {
     bool Result = true;
     uint32_t currentTick = WTK3_System_Timer_GetCounter();

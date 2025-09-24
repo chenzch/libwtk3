@@ -62,10 +62,6 @@ void WTK3_System_Timer_Init(void) {
 
 static volatile uint32_t __attribute__((section(".dtcm_data"))) gCurrentTick = 0;
 
-void __attribute__((section(".itcm_text"), optimize("O1"))) SysTick_Handler(void) {
-	++gCurrentTick;
-}
-
-uint32_t WTK3_System_Timer_GetCounter(void) {
+uint32_t __attribute__((section(".itcm_text"), optimize("O1"))) WTK3_System_Timer_GetCounter(void) {
     return gCurrentTick;
 }
