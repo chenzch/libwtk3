@@ -36,6 +36,10 @@ extern "C" {
 #define BIT(n) (1U << (n))
 #endif
 
+#if !defined(ASM_KEYWORD)
+#define ASM_KEYWORD __asm
+#endif
+
 static inline void NopDelay(uint32_t count) {
     register uint32_t Count = count;
     while (--Count) {

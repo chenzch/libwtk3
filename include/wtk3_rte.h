@@ -63,7 +63,6 @@ static inline void WT_RTE_Write(WT_RTE_ItemPtr pItem, uint32_t value) {
 #define WT_RTE_InitializedValue(Value, Count)                                                      \
     ((uint64_t)(Value) | ((uint64_t)((Count) * 0x0101) << 32ULL))
 
-
 typedef struct {
     uint32_t TaskState;
     uint32_t NextTick;
@@ -77,26 +76,25 @@ typedef struct {
 #define WT_RTE_TASK_STATE_IDLE    (0U)
 #define WT_RTE_TASK_STATE_RUN     (1U)
 
-#define WT_RTE_Task_INIT(Interval, FuncInit, FuncRun, FuncEnd) {WT_RTE_TASK_STATE_IDLE, 0, (Interval), (FuncInit), (FuncRun), (FuncEnd)}
+#define WT_RTE_Task_INIT(Interval, FuncInit, FuncRun, FuncEnd)                                     \
+    {WT_RTE_TASK_STATE_IDLE, 0, (Interval), (FuncInit), (FuncRun), (FuncEnd)}
 #define WT_RTE_Task_End() {WT_RTE_TASK_STATE_INVALID, 0, 0, NULL, NULL, NULL}
 
-void WTK3_System_Timer_Init(void);
+void     WTK3_System_Timer_Init(void);
 uint32_t WTK3_System_Timer_GetCounter(void);
 
-#define SYSTICK_HANDLER_IMPL void __attribute__((section(".itcm_text"), optimize("O1"))) SysTick_Handler(void) {++gCurrentTick;}
-
 static inline bool WTK3_RTE_Task_Init(WT_RTE_TaskPtr pTask) {
-    bool Result = true;
+    bool     Result      = true;
     uint32_t currentTick = WTK3_System_Timer_GetCounter();
 
     if (pTask) {
         while (pTask->TaskState != WT_RTE_TASK_STATE_INVALID) {
             if (pTask->TaskState == WT_RTE_TASK_STATE_IDLE) {
                 if (pTask->TaskInit && !pTask->TaskInit()) {
-					Result = false;
+                    Result = false;
                 } else {
                     pTask->TaskState = WT_RTE_TASK_STATE_RUN;
-                    pTask->NextTick = currentTick + pTask->TickInterval;
+                    pTask->NextTick  = currentTick + pTask->TickInterval;
                 }
             }
             ++pTask;

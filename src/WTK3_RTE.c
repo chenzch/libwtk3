@@ -53,15 +53,31 @@ typedef struct
 
 extern const OsIf_ConfigType *const OsIf_apxPredefinedConfig[];
 
+typedef void (*IntCtrl_Ip_IrqHandlerType)(void);
+void IntCtrl_Ip_InstallHandler(int32_t eIrqNumber,
+                               const IntCtrl_Ip_IrqHandlerType pfNewHandler,
+                               IntCtrl_Ip_IrqHandlerType* const pfOldHandler);
+#define SysTick_IRQn (-1)
+
+static volatile uint32_t __attribute__((section(".dtcm_data"))) gCurrentTick;
+static IntCtrl_Ip_IrqHandlerType __attribute__((section(".dtcm_data"))) pSysTick = 0;
+
+void __attribute__((section(".itcm_text"), optimize("O1"))) WTK3_System_Timer_IncCounter(void) {
+    ++gCurrentTick;
+    if (pSysTick) {
+        pSysTick();
+    }
+}
+
+uint32_t __attribute__((section(".itcm_text"), optimize("O1"))) WTK3_System_Timer_GetCounter(void) {
+    return gCurrentTick;
+}
+
 void WTK3_System_Timer_Init(void) {
     S32_SysTick->CSRr = S32_SysTick_CSR_ENABLE(0u);
     S32_SysTick->RVR = S32_SysTick_RVR_RELOAD(OsIf_apxPredefinedConfig[0]->counterFrequency / 1000);
     S32_SysTick->CVR = S32_SysTick_CVR_CURRENT(0U);
     S32_SysTick->CSRr = S32_SysTick_CSR_ENABLE(1u) | S32_SysTick_CSR_TICKINT(1u) | S32_SysTick_CSR_CLKSOURCE(1u);
-}
-
-static volatile uint32_t __attribute__((section(".dtcm_data"))) gCurrentTick = 0;
-
-uint32_t __attribute__((section(".itcm_text"), optimize("O1"))) WTK3_System_Timer_GetCounter(void) {
-    return gCurrentTick;
+    IntCtrl_Ip_InstallHandler(SysTick_IRQn, WTK3_System_Timer_IncCounter, &pSysTick);
+    gCurrentTick = 0;
 }
