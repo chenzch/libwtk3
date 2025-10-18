@@ -39,40 +39,55 @@ extern "C" {
 static inline void NopDelay(uint32_t count) {
     register uint32_t Count = count;
     while (--Count) {
-        __asm("nop");
+        ASM_KEYWORD("nop");
     }
 }
 
 static inline void Breakpoint(void) {
-    __asm("bkpt");
+    ASM_KEYWORD("bkpt");
+}
+
+static inline uint32_t GetLastBitPos(uint32_t value) {
+    register uint32_t pos;
+    ASM_KEYWORD("rbit %[outputPos], %[inputValue] \t\n"
+          "clz %[outputPos], %[outputPos] \t\n"
+          : [outputPos] "=r"(pos)
+          : [inputValue] "r"(value));
+    return pos;
+}
+
+static inline uint32_t EndianSwap32(uint32_t value) {
+    register uint32_t result;
+    ASM_KEYWORD("rev %0, %1" : "=r"(result) : "r"(value) :);
+    return result;
 }
 
 typedef union {
     uint32_t value;
     struct {
-        bool     FWPresent : 1;
-        bool     MUIfReady : 1;
-        bool     CodeFlashErased : 1;
-        bool     DataFlashErased : 1;
-        bool     FirmwareErased : 1;
-        bool     RecoveryMode : 1;
-        uint8_t  reserved3 : 1;
-        bool     SBAF_Random : 1;
-        uint32_t reserved2 : 8;
-        bool     WriteLockUTEST : 1;
-        bool     WriteLock0 : 1;
-        bool     WriteLock1 : 1;
-        bool     WriteLock2 : 1;
-        bool     WriteLock3 : 1;
-        bool     WriteLock4 : 1;
-        uint32_t reserved1 : 2;
-        bool     ReadLockUTEST : 1;
-        bool     ReadLock0 : 1;
-        bool     ReadLock1 : 1;
-        bool     ReadLock2 : 1;
-        bool     ReadLock3 : 1;
-        bool     ReadLock4 : 1;
-        uint32_t reserved0 : 2;
+        uint8_t FWPresent : 1;
+        uint8_t MUIfReady : 1;
+        uint8_t CodeFlashErased : 1;
+        uint8_t DataFlashErased : 1;
+        uint8_t FirmwareErased : 1;
+        uint8_t RecoveryMode : 1;
+        uint8_t reserved3 : 1;
+        uint8_t SBAF_Random : 1;
+        uint8_t reserved2 : 8;
+        uint8_t WriteLockUTEST : 1;
+        uint8_t WriteLock0 : 1;
+        uint8_t WriteLock1 : 1;
+        uint8_t WriteLock2 : 1;
+        uint8_t WriteLock3 : 1;
+        uint8_t WriteLock4 : 1;
+        uint8_t reserved1 : 2;
+        uint8_t ReadLockUTEST : 1;
+        uint8_t ReadLock0 : 1;
+        uint8_t ReadLock1 : 1;
+        uint8_t ReadLock2 : 1;
+        uint8_t ReadLock3 : 1;
+        uint8_t ReadLock4 : 1;
+        uint8_t reserved0 : 2;
     } B;
 } HSE_CONFIG_GPR3;
 
@@ -96,23 +111,50 @@ typedef union {
 #define sBafVersion (*(uint64_t *)0x4039C020UL)
 
 static inline void JumpToApplication(uint32_t BaseAddress) {
-    uint32_t         *pIntVector = (uint32_t *)BaseAddress;
-    uint32_t          userSP     = pIntVector[0];
-    register uint32_t userEntry  = pIntVector[1];
-    uint32_t         *pVTOR      = (uint32_t *)0xE000ED08UL;
+    ASM_KEYWORD("cpsid i");
 
-    __asm("cpsid i \t\n");
+    // Disable All Interrupt Sources & Clear All Pending Interrupt Flags
+    {
+        uint32_t index;
+#if defined(S32_NVIC)
+        uint32_t *pICER = (uint32_t *)&S32_NVIC->ICER[0];
+        uint32_t *pICPR = (uint32_t *)&S32_NVIC->ICPR[0];
+#else
+        uint32_t *pICER = (uint32_t *)0xE000E180UL;
+        uint32_t *pICPR = (uint32_t *)0xE000E280UL;
+#endif
+        for (index = 0; index < 8; ++index) {
+            pICER[index] = 0xFFFFFFFF;
+        }
+        for (index = 0; index < 8; ++index) {
+            pICPR[index] = 0xFFFFFFFF;
+        }
+    }
 
-    *pVTOR = BaseAddress;
+    // Set VTOR
+#if defined(S32_SCB)
+    S32_SCB->VTOR = BaseAddress;
+#else
+    {
+        uint32_t *pVTOR = (uint32_t *)0xE000ED08UL;
+        *pVTOR          = BaseAddress;
+    }
+#endif
 
-    /* Set up stack pointer */
-    __asm("msr msp, %[inputSP] \t\n"
-          "msr psp, %[inputSP] \t\n"
-          :
-          : [inputSP] "r"(userSP));
+    // Set SP & PC
+    {
+        uint32_t         *pIntVector = (uint32_t *)BaseAddress;
+        uint32_t          userSP     = pIntVector[0];
+        register uint32_t userEntry  = pIntVector[1];
+        /* Set up stack pointer */
+        ASM_KEYWORD("msr msp, %[inputSP] \t\n"
+              "msr psp, %[inputSP] \t\n"
+              :
+              : [inputSP] "r"(userSP));
 
-    /* Jump to application PC (r1) */
-    __asm("mov pc, %[inputEntry] \t\n" : : [inputEntry] "r"(userEntry));
+        /* Jump to application PC (r1) */
+        ASM_KEYWORD("mov pc, %[inputEntry] \t\n" : : [inputEntry] "r"(userEntry));
+    }
 }
 
 // Clock_Ip.h included
@@ -226,7 +268,8 @@ static inline void Siul2_Port_DisableUnusedPins(uint32_t       NumberOfUnusedPin
         Siul2_Port_Ip_PortType *BaseValue =
             (Siul2_Port_Ip_PortType *)(SIUL2_MSCR_BASE + (pin & ~0xFU));
         uint16_t PinValue = pin & 0xF;
-#if !(defined(CPU_S32K396) || defined(CPU_S32K376) || defined(CPU_S32K394) || defined(CPU_S32K374) || defined(CPU_S32K366) || defined(CPU_S32K364))
+#if !(defined(CPU_S32K396) || defined(CPU_S32K376) || defined(CPU_S32K394) ||                      \
+      defined(CPU_S32K374) || defined(CPU_S32K366) || defined(CPU_S32K364))
         if ((pin & (~1U)) == 24) {
             Siul2_Port_Ip_SetPinDirection(BaseValue, PinValue, SIUL2_PORT_IN);
             Siul2_Port_Ip_SetPullSel(BaseValue, PinValue, PORT_INTERNAL_PULL_DOWN_ENABLED);
@@ -239,7 +282,8 @@ static inline void Siul2_Port_DisableUnusedPins(uint32_t       NumberOfUnusedPin
     }
 }
 
-#define Siul2_Port_Ip_NameInit(NAME) Siul2_Port_Ip_Init(NUM_OF_CONFIGURED_PINS_##NAME, &g_pin_mux_InitConfigArr_##NAME[0])
+#define Siul2_Port_Ip_NameInit(NAME)                                                               \
+    Siul2_Port_Ip_Init(NUM_OF_CONFIGURED_PINS_##NAME, &g_pin_mux_InitConfigArr_##NAME[0])
 
 #if defined(DEBUGPIN)
 
@@ -278,6 +322,32 @@ void Siul2_Port_DebugOut(uint8_t Data);
 
 #endif
 
+#endif
+
+// FlexCAN_Ip.h included
+#if defined(FLEXCAN_FLEXCAN_IP_H_)
+typedef struct {
+    uint16_t TimeStamp : 16;
+    uint16_t DLC : 4;
+    uint16_t RTR : 1;
+    uint16_t IDE : 1;
+    uint16_t SRR : 1;
+    uint16_t CODE : 4;
+    uint16_t ESI : 1;
+    uint16_t BRS : 1;
+    uint16_t EDL : 1;
+    union {
+        struct {
+            uint32_t reserved : 18;
+            uint32_t ID : 11;
+            uint32_t PRIO : 3;
+        } STD_ID;
+        struct {
+            uint32_t ID : 29;
+            uint32_t PRIO : 3;
+        } EXT_ID;
+    } ID;
+} MessageBoxHeader;
 #endif
 
 // Flexio_Mcl_Ip.h included
@@ -1057,12 +1127,63 @@ typedef struct {
 #define IVT_BCW_HSE_BACKUP_DISABLE      (0x00000400UL)
 
 #if defined(NDEBUG)
-#define ASSERT_EQUAL(CONST_VALUE, VARIABLE) ((void)VARIABLE)
+#define ASSERT_EQUAL(CONST_VALUE, VARIABLE)     ((void)VARIABLE)
 #define ASSERT_NOT_EQUAL(CONST_VALUE, VARIABLE) ((void)VARIABLE)
 #else
-#define ASSERT_EQUAL(CONST_VALUE, VARIABLE) DevAssert((CONST_VALUE) == (VARIABLE))
+#define ASSERT_EQUAL(CONST_VALUE, VARIABLE)     DevAssert((CONST_VALUE) == (VARIABLE))
 #define ASSERT_NOT_EQUAL(CONST_VALUE, VARIABLE) DevAssert((CONST_VALUE) != (VARIABLE))
 #endif /* #if !defined(NDEBUG) */
+
+// ARM Cortex M7 CFSR (Configurable Fault Status Register) bit field structure
+// CFSR is a 32-bit register composed of three sub-registers:
+// - MMFSR (MemManage Fault Status Register) - bits [7:0]
+// - BFSR (BusFault Status Register) - bits [15:8]
+// - UFSR (UsageFault Status Register) - bits [31:16]
+
+typedef union {
+    uint32_t raw;
+    struct {
+        // MMFSR - MemManage Fault Status Register [7:0]
+        uint32_t IACCVIOL : 1;  // Bit 0: Instruction access violation
+        uint32_t DACCVIOL : 1;  // Bit 1: Data access violation
+        uint32_t reserved1 : 1; // Bit 2: Reserved
+        uint32_t MUNSTKERR : 1; // Bit 3: MemManage fault on unstacking
+        uint32_t MSTKERR : 1;   // Bit 4: MemManage fault on stacking
+        uint32_t MLSPERR : 1;   // Bit 5: MemManage fault during lazy state preservation
+        uint32_t reserved2 : 1; // Bit 6: Reserved
+        uint32_t MMARVALID : 1; // Bit 7: MemManage Address Register valid
+
+        // BFSR - BusFault Status Register [15:8]
+        uint32_t IBUSERR : 1;     // Bit 8: Instruction bus error
+        uint32_t PRECISERR : 1;   // Bit 9: Precise data bus error
+        uint32_t IMPRECISERR : 1; // Bit 10: Imprecise data bus error
+        uint32_t UNSTKERR : 1;    // Bit 11: BusFault on unstacking
+        uint32_t STKERR : 1;      // Bit 12: BusFault on stacking
+        uint32_t LSPERR : 1;      // Bit 13: BusFault during lazy state preservation
+        uint32_t reserved3 : 1;   // Bit 14: Reserved
+        uint32_t BFARVALID : 1;   // Bit 15: BusFault Address Register valid
+
+        // UFSR - UsageFault Status Register [31:16]
+        uint32_t UNDEFINSTR : 1; // Bit 16: Undefined instruction
+        uint32_t INVSTATE : 1;   // Bit 17: Invalid state
+        uint32_t INVPC : 1;      // Bit 18: Invalid PC
+        uint32_t NOCP : 1;       // Bit 19: No coprocessor
+        uint32_t reserved4 : 4;  // Bits [23:20]: Reserved
+        uint32_t UNALIGNED : 1;  // Bit 24: Unaligned access
+        uint32_t DIVBYZERO : 1;  // Bit 25: Divide by zero
+        uint32_t reserved5 : 6;  // Bits [31:26]: Reserved
+    } bits;
+} cfsr_register_t;
+
+#if defined(S32_SCB)
+#define S32_SCB_CFSR  ((cfsr_register_t *)&S32_SCB->CFSR)
+#define S32_SCB_MMFAR (S32_SCB->MMFAR)
+#define S32_SCB_BFAR  (S32_SCB->BFAR)
+#else
+#define S32_SCB_CFSR  ((cfsr_register_t *)0xE000ED28)
+#define S32_SCB_MMFAR (*((uint32_t *)0xE000ED34))
+#define S32_SCB_BFAR  (*((uint32_t *)0xE000ED38))
+#endif
 
 #if defined(__cplusplus)
 }
