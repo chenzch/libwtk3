@@ -5,7 +5,7 @@ MexFile="$1"
 BaseRoot="$(dirname "$MexFile")"
 
 FindModule() {
-    local pattern="<instance name=\\\"$1\\\""
+    local pattern="<instance name=\"$1\""
     grep -q "$pattern" "$MexFile"
 }
 
@@ -207,6 +207,22 @@ if FindModule "Lcu_Ip"; then
     echo "#include \"Lcu_Ip.h\""
 fi
 
+if FindModule "Adc_Sar_Ip"; then
+    echo "#include \"Adc_Sar_Ip.h\""
+fi
+
+if FindModule "Emios_Mcl_Ip"; then
+    echo "#include \"Emios_Mcl_Ip.h\""
+fi
+
+if FindModule "Emios_Pwm"; then
+    echo "#include \"Emios_Pwm_Ip.h\""
+fi
+
+if FindModule "Bctu_Ip"; then
+    echo "#include \"Bctu_Ip.h\""
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "#include \"Crypto_43_HSE.h\""
     echo "#include \"Crypto_43_HSE_Util.h\""
@@ -333,6 +349,16 @@ ISR(CAN${Instance}_ORED_0_31_MB_IRQHandler);"
         fi
         if FindModule "Flexio_Mcl_Ip"; then
             echo "ISR(MCL_FLEXIO_ISR);"
+        fi
+        if FindModule "Adc_Sar_Ip"; then
+            for Instance in $(grep -h '^#define ADCHWUNIT_[0-9]*_INSTANCE' $BaseRoot/generate/include/Adc_Sar_Ip_*fg.h | awk '{ print $3 }' | tr '()U' '   '); do
+                echo "ISR(Adc_Sar_${Instance}_Isr);"
+            done
+        fi
+        if FindModule "Bctu_Ip"; then
+            for Instance in $(grep -h '^#define  BCTUHWUNIT_[0-9]*_INSTANCE' $BaseRoot/generate/include/Bctu_Ip_*fg.h | awk '{ print $3 }' | tr '()U' '   '); do
+                echo "ISR(Bctu_${Instance}_Isr);"
+            done
         fi
     fi
 fi
@@ -807,6 +833,41 @@ if FindModule "Lcu_Ip"; then
     }"
 fi
 
+if FindModule "Adc_Sar_Ip"; then
+    for isr in $(grep -h '^#define ADCHWUNIT_[0-9]*_INSTANCE' $BaseRoot/generate/include/Adc_Sar_Ip_*fg.h | tr '_' ' ' | awk '{ print $3 }'); do
+        echo "    {
+        Adc_Sar_Ip_StatusType status = Adc_Sar_Ip_Init(ADCHWUNIT_${isr}_INSTANCE, &AdcHwUnit_${isr});
+        ASSERT_EQUAL((Adc_Sar_Ip_StatusType)ADC_SAR_IP_STATUS_SUCCESS, status);
+        for (uint32_t retry = 0; retry < 6; ++retry) {
+            if (ADC_SAR_IP_STATUS_SUCCESS == Adc_Sar_Ip_DoCalibration(ADCHWUNIT_${isr}_INSTANCE)) {
+                break;
+            }
+        }
+        Adc_Sar_Ip_EnableNotifications(ADCHWUNIT_${isr}_INSTANCE, ADC_SAR_IP_NOTIF_FLAG_NORMAL_ENDCHAIN | ADC_SAR_IP_NOTIF_FLAG_INJECTED_ENDCHAIN);
+    }"
+    done
+fi
+
+if FindModule "Bctu_Ip"; then
+    for isr in $(grep -h '^#define  BCTUHWUNIT_[0-9]*_INSTANCE' $BaseRoot/generate/include/Bctu_Ip_*fg.h | tr '_' ' ' | awk '{ print $3 }'); do
+        echo "    Bctu_Ip_Init(BCTUHWUNIT_${isr}_INSTANCE, &BctuHwUnit_${isr});
+    Bctu_Ip_SetGlobalTriggerEn(BCTUHWUNIT_${isr}_INSTANCE, TRUE);
+    Bctu_Ip_EnableNotifications(BCTUHWUNIT_${isr}_INSTANCE, BCTU_IP_NOTIF_FIFO1 | BCTU_IP_NOTIF_FIFO2);"
+    done
+fi
+
+if FindModule "Emios_Mcl_Ip"; then
+    for isr in $(grep -h '^extern const Emios_Mcl_Ip_ConfigType Emios_Mcl_Ip_Sa_[0-9]*_Config;' $BaseRoot/generate/include/Emios_Mcl_Ip_Sa_*fg.h | awk '{ print $4 }' | tr '_' ' ' | awk '{ print $5 }'); do
+        echo "    Emios_Mcl_Ip_Init(${isr}, &Emios_Mcl_Ip_Sa_${isr}_Config);"
+    done
+fi
+
+if FindModule "Emios_Pwm"; then
+    for Config in $(grep -h '^extern const Emios_Pwm_Ip_ChannelConfigType Emios_Pwm_Ip_Sa_I[0-9]*_Ch[0-9]*;' $BaseRoot/generate/include/Emios_Pwm_Ip_Sa_*fg.h | tr ';' ' ' | awk '{ print $4 }'); do
+        echo "    Emios_Pwm_Ip_InitChannel(${Config^^}_CFG, &${Config});"
+    done
+fi
+
 if FindModule "Crypto_43_HSE"; then
     echo "    /* Initialize Crypto driver */
     Crypto_43_HSE_Init(NULL_PTR);
@@ -959,6 +1020,22 @@ else
         IntCtrl_Ip_SetPriority(FLEXIO_IRQn, 0); // 0 highest -> 15 lowest
         IntCtrl_Ip_EnableIrq(FLEXIO_IRQn);"
         fi
+
+        if FindModule "Adc_Sar_Ip"; then
+            for isr in $(grep -h '^#define ADCHWUNIT_[0-9]*_INSTANCE' $BaseRoot/generate/include/Adc_Sar_Ip_*fg.h | awk '{ print $3 }' | tr '()U' '   '); do
+                echo "        IntCtrl_Ip_InstallHandler(ADC${isr}_IRQn, Adc_Sar_${isr}_Isr, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(ADC${isr}_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(ADC${isr}_IRQn);"
+            done
+        fi
+        if FindModule "Bctu_Ip"; then
+            for isr in $(grep -h '^#define  BCTUHWUNIT_[0-9]*_INSTANCE' $BaseRoot/generate/include/Bctu_Ip_*fg.h | awk '{ print $3 }' | tr '()U' '   '); do
+                echo "        IntCtrl_Ip_InstallHandler(BCTU${isr}_IRQn, Bctu_${isr}_Isr, NULL_PTR); // Parameter 3 is output of current ISR
+        IntCtrl_Ip_SetPriority(BCTU${isr}_IRQn, 0); // 0 highest -> 15 lowest
+        IntCtrl_Ip_EnableIrq(BCTU${isr}_IRQn);"
+            done
+        fi
+
         echo "    }"
     fi
 fi
