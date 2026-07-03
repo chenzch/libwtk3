@@ -702,9 +702,9 @@ fi
 if FindModule "FlexCAN"; then
     echo "    {
         Flexcan_Ip_StatusType status;"
-    readarray -t ConfigArray < <(grep -h '^extern const Flexcan_Ip_ConfigType .*;' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }')
+    readarray -t ConfigArray < <(grep -h 'extern const Flexcan_Ip_ConfigType .*;' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr ';' ' ' | awk '{ print $4 }')
     readarray -t InstanceArray < <(grep -h '^#define INST_FLEXCAN_.*' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | awk '{ print $2 }')
-    readarray -t StateArray < <(grep -h '^extern Flexcan_Ip_StateType .*;' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr ';' ' ' | awk '{ print $3 }')
+    readarray -t StateArray < <(grep -h 'extern Flexcan_Ip_StateType .*;' $BaseRoot/generate/include/FlexCAN_Ip_*fg.h | tr ';' ' ' | awk '{ print $3 }')
     for ((idx=0; idx<${#InstanceArray[@]}; idx++)); do
         echo "        status = FlexCAN_Ip_Init(${InstanceArray[$idx]}, &${StateArray[$idx]}, &${ConfigArray[$idx]});"
         echo "        ASSERT_EQUAL((Flexcan_Ip_StatusType)FLEXCAN_STATUS_SUCCESS, status);"
