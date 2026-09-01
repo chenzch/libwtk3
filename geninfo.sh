@@ -427,6 +427,14 @@ if FindModule "Mcu"; then
     Mcu_InitClock($ClockConfig);
 #endif /* (MCU_INIT_CLOCK == STD_ON) */
 
+#if (MCU_NO_PLL == STD_OFF)
+    while ( MCU_PLL_LOCKED != Mcu_GetPllStatus() )
+    {
+        /* Busy wait until the System PLL is locked */
+    }
+    Mcu_DistributePllClock();
+#endif
+
     /* Apply a mode configuration */
     Mcu_SetMode($ModeConfig);
 "
